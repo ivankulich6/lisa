@@ -48,6 +48,24 @@ public class Main {
 		}
 		System.out.println(s);
 	}
+	
+	private String printShapes(int[][][] shapes) {
+		String s = "[";
+		for (int i = 0; i < shapes.length; i++) {
+			s += "[";
+//		    for (int j = 0; j < shapes[i].length; j++) {
+			for (int j = 0; j < 1; j++) {
+		    	s += "[";
+			    for (int k = 0; k < shapes[i][j].length; k++) {
+			    	s+=shapes[i][j][k]+", ";
+			    }
+			    s+= "], ";
+		    }
+		    s+= "], ";
+	    }
+		s+= "]";
+		return s;
+	}
 
 	private BufferedImage drawShapes(int[][][] shapes) {
 		BufferedImage tmp = new BufferedImage(width, height,
@@ -58,13 +76,29 @@ public class Main {
 		_drawShapes(shapes, tmp);
 		return tmp;
 	}
+	
+	private int[][] copy (int[][] shape) {
+		int[][] res = new int[shape.length][];
+		for (int i = 0; i < shape.length; i++) {
+			res[i] = new int[shape.length];
+			for (int j = 0; j < shape[i].length; j++) {
+				res[i][j] = shape[i][j];
+			}
+		}
+		return res;
+	}
 
 	private double penalty(int[][][] shapes) {
+//		if (shapes.length > 10) {
+//			return 1000;
+//		} else {
+//			return 0;
+//		}
 		double res = 0;
 		for (int[][] shape : shapes) {
 			res += shape.length - 1;
 		}
-		return res / 10000.0;
+		return res * res / 100000.0;
 	}
 
 	private double penaltyShape(int[][][] shapes, BufferedImage target) {
@@ -91,12 +125,12 @@ public class Main {
 	private int[][][] alterShapes(int[][][] shapes) {
 		int opcode = randg.nextInt(100);
 		int n = shapes.length;
-		if (opcode < 10) {
+		if (opcode < 20) {
 			int[][][] newShapes = new int[n + 1][][];
 			System.arraycopy(shapes, 0, newShapes, 0, n);
 			newShapes[n] = getRandomShape();
 			return newShapes;
-		} else if (opcode < 20) {
+		} else if (opcode < 40) {
 			if (n == 0) {
 				return shapes;
 			}
@@ -113,9 +147,10 @@ public class Main {
 			int[][][] newShapes = new int[n][][];			
 			System.arraycopy(shapes, 0, newShapes, 0, n);
 			int index = randg.nextInt(n);
+			newShapes[index] = copy(shapes[index]);
 			int inner = randg.nextInt(shapes[index].length);
-			int inninner = randg.nextInt(shapes[index][inner].length);
-			int move = randg.nextInt(2) * 2 - 1;
+     		int inninner = randg.nextInt(newShapes[index][inner].length);
+			int move = randg.nextInt(20) - 10;
 			int[] tmp = newShapes[index][inner];
 			tmp[inninner] += move;
 			// if messing with color, trim outputs to 0, 255
@@ -148,6 +183,7 @@ public class Main {
 		System.out.println("Hello");
 		Main p = new Main();
 		p.run();
+//		p.experiment();
 	}
 
 	public BufferedImage readImage(String filename) throws IOException {
@@ -159,7 +195,7 @@ public class Main {
 	}
 
 	public void run() throws IOException {
-		BufferedImage target = readImage("women_small.jpg");
+		BufferedImage target = readImage("women_micro.jpg");
 		width = target.getWidth();
 		height = target.getHeight();
 		prepareGUI();
@@ -174,9 +210,12 @@ public class Main {
 			cnt++;
 			int[][][] newShapes = alterShapes(shapes);
 			double newDiff = penaltyShape(newShapes, target);
-			if (randg.nextDouble() < Math.exp(- (newDiff - d) / temp)) {
-				System.out.println("Gotcha");
-				temp *= 0.5;
+//			if (randg.nextDouble() < Math.exp(- (newDiff - d) / temp)) {
+			if (newDiff < d) {
+				System.out.print("+");
+				if (newDiff - d < -0.00001) {
+     				temp *= 0.5;
+				}
 				shapes = newShapes;
 				d = newDiff;
 				img = drawShapes(shapes);
@@ -185,7 +224,9 @@ public class Main {
 				temp *= 1.002;
 			}
 			if (cnt % 100 == 0) {
+			  System.out.println("");
 			  System.out.println("Diff: " + d + " cnt: " + cnt + " polygons: " + shapes.length + " temp: " + temp);
+			  System.out.println(printShapes(shapes));
 			}  
 
 		}
@@ -202,18 +243,18 @@ public class Main {
 		int c3 = (int) pixel >> 16 & 0xff; // r
 		int c0 = (int) pixel >> 24 & 0xff; // alpha
 //		System.out.println("raw: " + c0 + " " + c1 + " " + c2 + " " + c3);
-		res[0] = colorNoAlpha(c1, c0);
+		res[0] = colorNoAlpha(c3, c0);
 		res[1] = colorNoAlpha(c2, c0);
-		res[2] = colorNoAlpha(c3, c0);
+		res[2] = colorNoAlpha(c1, c0);
 //		System.out.println("alpha: " + res[0] + " " + res[1] + " " + res[2]);
 	}
 	
 	private void experiment() throws IOException {
-		width = 500;
-		height = 500;
+		width = 100;
+		height = 100;
 		int x = 0;
-		int[][][] shapes1 = new int[][][] {{{255,255,0,255}, {0, 0}, {0, 100}, {100, 100}, {100, 0}}};
-		int[][][] shapes2 = new int[][][] {{{0,0,0,255}, {x, x}, {x, x+ 100}, {100+x, x+100}, {100+x, x}}};
+		int[][][] shapes1 = new int[][][] {{{255,0,0,255}, {0, 0}, {0, 100}, {100, 100}, {100, 0}}};
+		int[][][] shapes2 = new int[][][] {{{180,0,0,255}, {0, 0}, {70, 70}, {0, 100}}};
 		prepareGUI();
 	    BufferedImage target = drawShapes(shapes1);
 	    drawing.draw(target);
@@ -232,11 +273,6 @@ public class Main {
 		for (int pixel1 = 0, pixel2 = 0; pixel1 < pixels1.length; pixel1 += 1, pixel2 += 1) {
 			getPixel(pixels1[pixel1], res1);
 			getPixel(pixels2[pixel2], res2);
-//			if (pixel1 == -1) {
-//				printArr(res1);
-//				printArr(res2);
-//				break;
-//			}
 			diff += Math.sqrt(Math.pow(res1[0] - res2[0], 2)
 					+ Math.pow(res1[1] - res2[1], 2)
 					+ Math.pow(res1[2] - res2[2], 2));
