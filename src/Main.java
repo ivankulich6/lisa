@@ -201,18 +201,11 @@ public class Main {
 		BufferedWriter writer = null;
 		try {
 			File outFile = new File(sFile);
-			StringBuilder sb = new StringBuilder();
-			sb.append(shapes.length).append("\n");
-			for (int j1 = 0; j1 < shapes.length; j1++) {
-
-			}
-
-			// This will output the full path where the file will be written
-			// to...
-			System.out.println(outFile.getCanonicalPath());
+			StringBuilder sb = ShapesToSb(shapes);
+		System.out.println(outFile.getCanonicalPath());
 
 			writer = new BufferedWriter(new FileWriter(outFile));
-			writer.write("Hello world!");
+			writer.write(sb.toString());
 
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -259,7 +252,8 @@ public class Main {
 		double d = penaltyShape(shapes, target);
 		int cnt = 0;
 		double temp = 1;
-		while (true) {
+		boolean cont = true;
+		while (cont) {
 			temp = Math.max(temp, Math.pow(10, -10));
 			cnt++;
 			int[][][] newShapes = alterShapes(shapes);
@@ -285,6 +279,11 @@ public class Main {
 				System.out.println("Diff: " + d + " cnt: " + cnt
 						+ " polygons: " + shapes.length + " temp: " + temp);
 				System.out.println(printShapes(shapes));
+			}
+			if(cnt == 1000){
+				cont = false;
+				saveShapes("shapes01.txt", shapes);
+				
 			}
 
 		}
