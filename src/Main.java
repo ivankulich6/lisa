@@ -1,13 +1,13 @@
 import java.awt.Color;
 import java.awt.Graphics;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.lang.reflect.Array;
-import java.util.Arrays;
 import java.util.Random;
 
 import javax.imageio.ImageIO;
@@ -26,6 +26,9 @@ public class Main {
 	/*
 	 * shapes: [[[r, g, b, a], [p0x, p0y], [p1x, p2x], ...], ...]
 	 */
+	
+	int[][][] gshapes;
+	
 	private void _drawShapes(int[][][] shapes, BufferedImage img) {
 		Graphics g = img.getGraphics();
 		for (int shape[][] : shapes) {
@@ -75,12 +78,12 @@ public class Main {
 		sb.append("[");
 		delimj = "";
 		for (int j = 0; j < shape.length; j++, delimj = ", ") {
-			sb.append("[");
+			sb.append(delimj).append("[");
 			delimk = "";
 			for (int k = 0; k < shape[j].length; k++, delimk = ", ") {
 				sb.append(delimk).append(shape[j][k]);
 			}
-			sb.append(delimj).append("]");
+			sb.append("]");
 		}
 		sb.append("]");
 		return sb;
@@ -88,8 +91,9 @@ public class Main {
 
 	private StringBuilder ShapesToSb(int[][][] shapes) {
 		StringBuilder sb = new StringBuilder();
+		sb.append(shapes.length).append("\n");
 		for (int i = 0; i < shapes.length; i++) {
-			sb.append(ShapeToSb(shapes[i])).append("\n");
+			sb.append(i).append(": ").append(ShapeToSb(shapes[i])).append("\n");
 		}
 		return sb;
 	}
@@ -107,7 +111,7 @@ public class Main {
 	private int[][] copy(int[][] shape) {
 		int[][] res = new int[shape.length][];
 		for (int i = 0; i < shape.length; i++) {
-			res[i] = new int[shape.length];
+			res[i] = new int[shape[i].length];
 			for (int j = 0; j < shape[i].length; j++) {
 				res[i][j] = shape[i][j];
 			}
@@ -116,16 +120,11 @@ public class Main {
 	}
 
 	private double penalty(int[][][] shapes) {
-		// if (shapes.length > 10) {
-		// return 1000;
-		// } else {
-		// return 0;
-		// }
 		double res = 0;
 		for (int[][] shape : shapes) {
 			res += shape.length - 1;
 		}
-		return res * res / 1.0;
+		return res * res / 10000.0;
 	}
 
 	private double penaltyShape(int[][][] shapes, BufferedImage target) {
@@ -148,8 +147,9 @@ public class Main {
 		}
 		return res;
 	}
-
+	
 	private int[][][] alterShapes(int[][][] shapes) {
+
 		int opcode = randg.nextInt(100);
 		int n = shapes.length;
 		if (opcode < 20) {
@@ -203,9 +203,9 @@ public class Main {
 			File outFile = new File(sFile);
 			StringBuilder sb = ShapesToSb(shapes);
 		System.out.println(outFile.getCanonicalPath());
-
-			writer = new BufferedWriter(new FileWriter(outFile));
+			writer = new BufferedWriter(new FileWriter(outFile ));
 			writer.write(sb.toString());
+			writer.close();
 
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -219,12 +219,22 @@ public class Main {
 
 	private void prepareGUI() throws IOException {
 		mainFrame = new JFrame("Java Swing Examples");
-		mainFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		//mainFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		mainFrame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 		mainFrame.setSize(width, height);
 		drawing = new DrawingPanel();
 		mainFrame.add(drawing);
 		mainFrame.setVisible(true);
+		mainFrame.addWindowListener(new WindowAdapter() {
+			  public void windowClosing(WindowEvent we) {
+			System.out.println("mainFrame is closing");
+			saveShapes("shapes01.txt" , gshapes);
+		    System.exit(0);
+		  }}
+		);
 	}
+	
+
 
 	public static void main(String[] args) throws IOException {
 		System.out.println("Hello");
@@ -249,11 +259,11 @@ public class Main {
 		BufferedImage img = new BufferedImage(width, height,
 				BufferedImage.TYPE_INT_ARGB);
 		int[][][] shapes = new int[0][][];
+		gshapes = shapes; 
 		double d = penaltyShape(shapes, target);
 		int cnt = 0;
 		double temp = 1;
-		boolean cont = true;
-		while (cont) {
+		while (true) {
 			temp = Math.max(temp, Math.pow(10, -10));
 			cnt++;
 			int[][][] newShapes = alterShapes(shapes);
@@ -268,6 +278,7 @@ public class Main {
 					temp *= 0.5;
 				}
 				shapes = newShapes;
+				gshapes = shapes; 
 				d = newDiff;
 				img = drawShapes(shapes);
 				drawing.draw(img);
@@ -280,12 +291,6 @@ public class Main {
 						+ " polygons: " + shapes.length + " temp: " + temp);
 				System.out.println(printShapes(shapes));
 			}
-			if(cnt == 1000){
-				cont = false;
-				saveShapes("shapes01.txt", shapes);
-				
-			}
-
 		}
 	}
 
