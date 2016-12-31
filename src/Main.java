@@ -228,7 +228,7 @@ public class Main {
 		mainFrame.addWindowListener(new WindowAdapter() {
 			  public void windowClosing(WindowEvent we) {
 			System.out.println("mainFrame is closing");
-			saveShapes("shapes01.txt" , gshapes);
+			saveShapes("testdata/shapes01.txt" , gshapes);
 		    System.exit(0);
 		  }}
 		);
