@@ -24,10 +24,13 @@ public class Main {
 	Random randg = new Random();
 
 	/*
-	 * shapes: [[[r, g, b, a], [p0x, p0y], [p1x, p2x], ...], ...]
+	 * shapes: [[[r, g, b, a, o], [p0x, p0y], [p1x, p2x], ...], ...]
+	 * o = unique, immutable order number, satisfied cond.
+	 *  (if  shape1 index < shape2 index, then shape1 o < shape2 o)
 	 */
 	
-	int[][][] gshapes;
+	int[][][] gShapes;
+	int gOrder = 0;
 	
 	private void _drawShapes(int[][][] shapes, BufferedImage img) {
 		Graphics g = img.getGraphics();
@@ -72,13 +75,6 @@ public class Main {
 	}
 
 
-	private void printArr(int[] arr) {
-		String s = "";
-		for (int elem : arr) {
-			s += elem + ", ";
-		}
-		System.out.println(s);
-	}
 
 	private String printShapes(int[][][] shapes) {
 		String s = "[";
@@ -154,12 +150,13 @@ public class Main {
 	}
 
 	private int[][] getRandomShape() {
-		int[] color = new int[4];
+		int[] color = new int[5];
 		for (int i = 0; i < 3; i++) {
 			color[i] = randg.nextInt(256);
 		}
-		//color[3] = 1;
+		//color[3] = alpha, from 1 to 255; (0 is useless)
 		color[3] = randg.nextInt(255) + 1;
+		color[4] = gOrder++;
 		int[][] res = new int[4][];
 		res[0] = color;
 		for (int i = 0; i < 3; i++) {
@@ -190,6 +187,7 @@ public class Main {
 			System.arraycopy(shapes, 0, newShapes, 0, n);
 			newShapes[n] = getRandomShape();
 			oldNewShapes[1] = newShapes[n];
+
 			return newShapes;
 		} else if (opcode < 40) {
 			if (n == 0) {
@@ -211,7 +209,13 @@ public class Main {
 			int index = randg.nextInt(n);
 			newShapes[index] = copy(shapes[index]);
 			int inner = randg.nextInt(shapes[index].length);
-			int inninner = randg.nextInt(newShapes[index][inner].length);
+			int inninner, randMax;
+			if(inner == 0){
+				randMax = 4;
+			}else{
+				randMax = newShapes[index][inner].length;
+			}
+			inninner = randg.nextInt(randMax);
 			int move = randg.nextInt(20) - 10;
 			int[] tmp = newShapes[index][inner];
 			tmp[inninner] += move;
@@ -233,7 +237,7 @@ public class Main {
 			return newShapes;
 		}
 	}
-
+	
 	private void saveShapes(String sFile, int[][][] shapes) {
 		BufferedWriter writer = null;
 		try {
@@ -265,8 +269,8 @@ public class Main {
 		mainFrame.addWindowListener(new WindowAdapter() {
 			  public void windowClosing(WindowEvent we) {
 			System.out.println("mainFrame is closing");
-			if(gshapes != null){
-				saveShapes("testdata/shapes01.txt" , gshapes);
+			if(gShapes != null){
+				saveShapes("testdata/shapes01.txt" , gShapes);
 			}
 		    System.exit(0);
 		  }}
@@ -304,19 +308,8 @@ public class Main {
 		prepareGUI();
 		BufferedImage img;
 
-		//test targetRgb
-		//BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-		/*
-		for(int jh = 0; jh < height; jh++){
-			for(int jw = 0; jw < width; jw++){
-				img.setRGB(jw, jh, Utils.getRgbInt(targetRgb[jw + jh*width]));
-			}
-		}
-		drawing.draw(img);
-		*/
-		
 		int[][][] shapes = new int[0][][];
-		gshapes = shapes; 
+		gShapes = shapes; 
 		Area area = new Area(width, height);
 		double d, newDiff;
 		if(useArea){
@@ -332,7 +325,7 @@ public class Main {
 			cnt++;
 			int[][][] newShapes = alterShapes(shapes, oldNewShapes);
 			if(useArea){
-				area.replaceShape(oldNewShapes[0], oldNewShapes[1], newShapes);
+				area.replaceShape(oldNewShapes[0], oldNewShapes[1]);
 				newDiff = penaltyShape(area, targetRgb, newShapes);
 			}else{
 				newDiff = penaltyShape(newShapes, target);
@@ -347,7 +340,7 @@ public class Main {
 					temp *= 0.5;
 				}
 				shapes = newShapes;
-				gshapes = shapes; 
+				gShapes = shapes; 
 				d = newDiff;
 				if(useArea){
 					img = drawArea(area);
@@ -357,14 +350,15 @@ public class Main {
 				drawing.draw(img);
 			} else {
 				if(useArea){
-					area.replaceShape(oldNewShapes[1], oldNewShapes[0], shapes);
+					area.replaceShape(oldNewShapes[1], oldNewShapes[0]);
 				}
 				temp *= 1.002;
 			}
 			if (cnt % 100 == 0) {
 				System.out.println("");
 				System.out.println("Diff: " + d + " cnt: " + cnt
-						+ " polygons: " + shapes.length + " temp: " + temp + " avgRange: " + area.getAverageShapeRangeShare());
+						+ " polygons: " + shapes.length + " temp: " + temp + " avgRange: " + area.getAverageShapeRangeShare()
+						+ " gOrder: " + gOrder);
 				System.out.println(printShapes(shapes));
 			}
 		}
@@ -395,19 +389,19 @@ public class Main {
 				{ { 0, 255, 0, 200 }, { 0, 0 },	{ 0, 100 }, { 100, 100 }},
 				{ { 0, 0, 255, 50 }, { 0, 0 },	{ 100, 0 }, { 100, 100 }}
 		};
-		area.addShape(shapes[0], shapes);
-		area.addShape(shapes[1], shapes);
-		area.addShape(shapes[2], shapes);
+		area.addShape(shapes[0]);
+		area.addShape(shapes[1]);
+		area.addShape(shapes[2]);
 		drawing.draw(drawArea(area));
 		drawing.draw(drawShapes(shapes));
 		
 		/*
-		area.addShape(shapes[1], shapes);
+		area.addShape(shapes[1]);
 		drawing.draw(drawArea(area));
-		area.addShape(shapes[2], shapes);
+		area.addShape(shapes[2]);
 		drawing.draw(drawArea(area));
 		
-		area.removeShape(shapes[0], shapes);
+		area.removeShape(shapes[0]);
 		drawing.draw(drawArea(area)); 
 		*/
 		return;
@@ -422,11 +416,11 @@ public class Main {
 		int[][][] shapes = new int[0][][];
 		for(int j = 0; j < nShapes; j++){
 			shapes = addRandomShape(shapes);
-			area.addShape(shapes[shapes.length - 1], shapes);
+			area.addShape(shapes[shapes.length - 1]);
 			drawing.draw(drawArea(area));
 		}
 		for(int j = nShapes - 1; j >= 0; j--){
-			area.removeShape(shapes[j], shapes);
+			area.removeShape(shapes[j]);
 			drawing.draw(drawArea(area));
 		}
 		return;

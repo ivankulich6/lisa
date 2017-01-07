@@ -2,7 +2,6 @@ import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
-import java.util.Iterator;
 
 public class Area {
 	public int width;
@@ -47,71 +46,86 @@ public class Area {
 		return pixels[y * width + x].getRgbInt();
 	}
 	
-	public void addShape(int[][] shape, int[][][] shapes){
+	private int getShapeOrder(int[][] shape){
+		return shape[0][4];
+	}
+	
+	public void addShape(int[][] shape){
 		final int[] tmppixels = getShapePixels(shape);
 		shapeRange.initialize().add(shape, true);
+		int order = getShapeOrder(shape);
 		for(int jh = shapeRange.yMin; jh < shapeRange.yMax; jh++){
 			int jhw = jh * width;
 			for(int jw = shapeRange.xMin; jw < shapeRange.xMax; jw++){
 				int ind = jhw + jw;
 				if((tmppixels[ind] & 0xff) == 0){
 					AreaPixel p = pixels[ind];
-					p.shapes.add(shape);
-					p.rgbRegen(shapes);
+					p.shapes.put(order, shape);
+					p.rgbRegen();
 				}
 			}
 		}
 	}
 	
-	public void removeShape(int[][] shape, int[][][] shapes){
+	public void removeShape(int[][] shape){
 		shapeRange.initialize().add(shape, true);
+		int order = getShapeOrder(shape);
 		for(int jh = shapeRange.yMin; jh < shapeRange.yMax; jh++){
 			int jhw = jh * width;
 			for(int jw = shapeRange.xMin; jw < shapeRange.xMax; jw++){
 				AreaPixel p = pixels[jhw + jw];
-				if(p.shapes.contains(shape)){
-					p.shapes.remove(shape);
-					p.rgbRegen(shapes);
+				if(p.shapes.containsKey(order)){
+					p.shapes.remove(order);
+					p.rgbRegen();
 				}
 			}
 		}
 	}
 	
-	public void replaceShape(int[][] oldShape, int[][] newShape,  int[][][] shapes){
+	public void replaceShape(int[][] oldShape, int[][] newShape){
 		if(oldShape == null && newShape == null){
 			return;
 		}
 		if(oldShape == null){
-			addShape(newShape, shapes);
+			addShape(newShape);
 		}else if(newShape == null){
-			removeShape(oldShape, shapes);
+			removeShape(oldShape);
 		}else{
 			final int[] tmppixels = getShapePixels(newShape);
 			shapeRange.initialize().add(oldShape).add(newShape, true);
-			boolean pixelChange = false;
+			
+			boolean pixelChange, pixelInOld, pixelInNew;
+			int orderOldShape = getShapeOrder(oldShape);
+			int orderNewShape = getShapeOrder(newShape);
 			AreaPixel p;
 			for(int jh = shapeRange.yMin; jh < shapeRange.yMax; jh++){
 				int jhw = jh * width;
 				for(int jw = shapeRange.xMin; jw < shapeRange.xMax; jw++){
 					int ind = jhw + jw;
-					p = pixels[jhw + jw];
-					if(p.shapes.contains(oldShape)){
-						p.shapes.remove(oldShape);
+					p = pixels[ind];
+					pixelInOld = p.shapes.containsKey(orderOldShape);
+					pixelInNew = (tmppixels[ind] & 0xff) == 0;
+					pixelChange = false;
+					if(pixelInOld && pixelInNew && (orderOldShape == orderNewShape)){
+						p.shapes.put(orderNewShape, newShape);
 						pixelChange = true;
-					}
-					if((tmppixels[ind] & 0xff) == 0){
-						p = pixels[ind];
-						p.shapes.add(newShape);
-						pixelChange = true;
+					}else{
+						if(pixelInOld){
+							p.shapes.remove(orderOldShape);
+							pixelChange = true;
+						}
+						if(pixelInNew){
+							p.shapes.put(orderNewShape, newShape);
+							pixelChange = true;
+						}
 					}
 					if(pixelChange){
-						p.rgbRegen(shapes);
+						p.rgbRegen();
 					}
 				}
 			}
 		}
 	}
-
 	
 	public double diff(int[][] targetRgb) {
 		assert (pixels.length == targetRgb.length);
