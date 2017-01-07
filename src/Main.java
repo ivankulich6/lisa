@@ -141,7 +141,7 @@ public class Main {
 		for (int[][] shape : shapes) {
 			res += shape.length - 1;
 		}
-		return res * res / 10000.0;
+		return res * res / 1000000.0;
 	}
 
 	private double penaltyShape(int[][][] shapes, BufferedImage target) {
@@ -178,19 +178,18 @@ public class Main {
 		return newShapes;
 	}
 	
-	private int[][][] alterShapes(int[][][] shapes, int[][][] raShapes){
+	private int[][][] alterShapes(int[][][] shapes, int[][][] oldNewShapes){
 		
-		assert(raShapes.length == 2);
-		raShapes[0] = null;
-		raShapes[1] = null;
-
 		int opcode = randg.nextInt(100);
 		int n = shapes.length;
+		oldNewShapes[0] = null;
+		oldNewShapes[1] = null;
+		
 		if (opcode < 20) {
 			int[][][] newShapes = new int[n + 1][][];
 			System.arraycopy(shapes, 0, newShapes, 0, n);
 			newShapes[n] = getRandomShape();
-			raShapes[1] = newShapes[n];
+			oldNewShapes[1] = newShapes[n];
 			return newShapes;
 		} else if (opcode < 40) {
 			if (n == 0) {
@@ -201,7 +200,7 @@ public class Main {
 			System.arraycopy(shapes, 0, newShapes, 0, index);
 			System.arraycopy(shapes, index + 1, newShapes, index,
 					(n - 1 - index));
-			raShapes[0] = shapes[index];
+			oldNewShapes[0] = shapes[index];
 			return newShapes;
 		} else {
 			if (n == 0) {
@@ -229,8 +228,8 @@ public class Main {
 				tmp[inninner] = Math.min(tmp[inninner], height);
 				tmp[inninner] = Math.max(tmp[inninner], 0);
 			}
-			raShapes[0] = shapes[index];
-			raShapes[1] = newShapes[index];
+			oldNewShapes[0] = shapes[index];
+			oldNewShapes[1] = newShapes[index];
 			return newShapes;
 		}
 	}
@@ -280,7 +279,8 @@ public class Main {
 		System.out.println("Hello");
 		Main p = new Main();
 		p.run();
-		// p.experiment();
+		//p.experiment();
+		//p.experiment2();
 		//p.experiment3();
 	}
 
@@ -294,13 +294,13 @@ public class Main {
 	
 
 	public void run() throws IOException {
-		boolean useArea = false;
-		//boolean useArea = true;
+		//boolean useArea = false;
+		boolean useArea = true;
 		BufferedImage target = readImage("women_micro.jpg");
 		width = target.getWidth();
 		height = target.getHeight();
 		int[][] targetRgb = Utils.getPixelsRgb(target);
-		int[][][] raShapes = new int[2][][];
+		int[][][] oldNewShapes = new int[2][][];
 		prepareGUI();
 		BufferedImage img;
 
@@ -330,9 +330,9 @@ public class Main {
 		while (true) {
 			temp = Math.max(temp, Math.pow(10, -10));
 			cnt++;
-			int[][][] newShapes = alterShapes(shapes, raShapes);
+			int[][][] newShapes = alterShapes(shapes, oldNewShapes);
 			if(useArea){
-				area.removeAddShape(raShapes, false);
+				area.replaceShape(oldNewShapes[0], oldNewShapes[1], newShapes);
 				newDiff = penaltyShape(area, targetRgb, newShapes);
 			}else{
 				newDiff = penaltyShape(newShapes, target);
@@ -357,14 +357,14 @@ public class Main {
 				drawing.draw(img);
 			} else {
 				if(useArea){
-					area.removeAddShape(raShapes, true);
+					area.replaceShape(oldNewShapes[1], oldNewShapes[0], shapes);
 				}
 				temp *= 1.002;
 			}
 			if (cnt % 100 == 0) {
 				System.out.println("");
 				System.out.println("Diff: " + d + " cnt: " + cnt
-						+ " polygons: " + shapes.length + " temp: " + temp);
+						+ " polygons: " + shapes.length + " temp: " + temp + " avgRange: " + area.getAverageShapeRangeShare());
 				System.out.println(printShapes(shapes));
 			}
 		}
@@ -391,26 +391,25 @@ public class Main {
 		prepareGUI();
 		Area area = new Area(width, height);
 		int[][][] shapes = new int[][][] {
-				{ { 255, 0, 0, 255 }, { 10, 25 },	{ 10, 50 }, { 50, 50 }, { 50, 25 } },
-				{ { 0, 255, 0, 100 }, { 0, 0 },	{ 0, 100 }, { 100, 100 }},
-				{ { 0, 0, 255, 100 }, { 0, 0 },	{ 100, 0 }, { 100, 100 }}
+				{ { 255, 0, 0, 100 }, { 10, 25 },	{ 10, 50 }, { 50, 50 }, { 50, 25 } },
+				{ { 0, 255, 0, 200 }, { 0, 0 },	{ 0, 100 }, { 100, 100 }},
+				{ { 0, 0, 255, 50 }, { 0, 0 },	{ 100, 0 }, { 100, 100 }}
 		};
-		area.addShape(shapes[0]);
+		area.addShape(shapes[0], shapes);
+		area.addShape(shapes[1], shapes);
+		area.addShape(shapes[2], shapes);
 		drawing.draw(drawArea(area));
-		System.in.read();
-		area.addShape(shapes[1]);
-		drawing.draw(drawArea(area));
-		System.in.read();
-		area.addShape(shapes[2]);
-		drawing.draw(drawArea(area));
-		System.in.read();
+		drawing.draw(drawShapes(shapes));
 		
-		area.removeShape(shapes[0]);
+		/*
+		area.addShape(shapes[1], shapes);
+		drawing.draw(drawArea(area));
+		area.addShape(shapes[2], shapes);
+		drawing.draw(drawArea(area));
+		
+		area.removeShape(shapes[0], shapes);
 		drawing.draw(drawArea(area)); 
-		System.in.read();
-		//BufferedImage target = drawArea(area);
-		//drawing.draw(target);
-		
+		*/
 		return;
 	}
 	
@@ -419,21 +418,19 @@ public class Main {
 		height = 100;
 		prepareGUI();
 		Area area = new Area(width, height);
-		int nShapes = 1000;
+		int nShapes = 3;
 		int[][][] shapes = new int[0][][];
 		for(int j = 0; j < nShapes; j++){
 			shapes = addRandomShape(shapes);
-			area.addShape(shapes[shapes.length - 1]);
+			area.addShape(shapes[shapes.length - 1], shapes);
 			drawing.draw(drawArea(area));
 		}
-		for(int j = 0; j < nShapes; j++){
-			area.removeShape(shapes[j]);
+		for(int j = nShapes - 1; j >= 0; j--){
+			area.removeShape(shapes[j], shapes);
 			drawing.draw(drawArea(area));
 		}
 		return;
 	}
-
-
 
 	public double diff(BufferedImage img1, BufferedImage img2) {
 		final int[] pixels1 = ((DataBufferInt) img1.getRaster().getDataBuffer())

@@ -3,19 +3,6 @@ import java.awt.image.DataBufferInt;
 
 public class Utils {
 	
-	public static void findShapeRanges(int[][] shape, int[] xRange, int[] yRange){
-		xRange[0] = yRange[0] = Integer.MAX_VALUE;
-		xRange[1] = yRange[1] = Integer.MIN_VALUE;
-		for(int j = 1; j < shape.length; j++){
-			int xy[] = shape[j];
-			xRange[0] = Math.min(xRange[0], xy[0]);
-			xRange[1] = Math.max(xRange[1], xy[0]);
-			yRange[0] = Math.min(yRange[0], xy[1]);
-			yRange[1] = Math.max(yRange[1], xy[1]);
-		}
-		return;
-	}
-
 	public static int colorNoAlpha(int rgb, int alpha) {
 		double a = (double) alpha / (double) 255;
 		return (int) Math.round(a * rgb + (1 - a) * 255);

@@ -8,8 +8,8 @@ public class Area {
 	public int width;
 	public int height;
 	public AreaPixel[] pixels;
-	private int[] xRange;
-	private int[] yRange;
+	private ShapeRange shapeRange;
+	BufferedImage tempBufferedImage;
 	
 	Area(int width, int height){
 		assert(width > 0 && height > 0);
@@ -19,18 +19,13 @@ public class Area {
 		for(int j = 0; j < height * width; j++){
 			pixels[j] = new AreaPixel();
 		}
-		xRange = new int[2];
-		yRange = new int[2];
-	}
-	
-	public int getRgbInt(int x, int y){
-		return pixels[y * width + x].getRgbInt();
-	}
-	
-	public void addShape(int[][] shape){
-		BufferedImage tmp = new BufferedImage(width, height,
+		shapeRange = new ShapeRange();
+		tempBufferedImage = new BufferedImage(width, height,
 				BufferedImage.TYPE_INT_ARGB);
-		Graphics g = tmp.getGraphics();
+	}
+	
+	private int[] getShapePixels(int[][] shape){
+		Graphics g = tempBufferedImage.getGraphics();
 		g.setColor(new Color(255, 255, 255));
 		g.fillRect(0, 0, width, height);
 		g.setColor(new Color(0, 0, 0, 255));
@@ -43,82 +38,80 @@ public class Area {
 			ypoints[i] = shape[i + 1][1];
 		}
 		g.fillPolygon(xpoints, ypoints, npoints);
-		final int[] tmppixels = ((DataBufferInt) tmp.getRaster().getDataBuffer())
+		return ((DataBufferInt) tempBufferedImage.getRaster().getDataBuffer())
 				.getData();
 		
-		Utils.findShapeRanges(shape, xRange, yRange);
-		
-		for(int jh = yRange[0]; jh < yRange[1]; jh++){
+	}
+	
+	public int getRgbInt(int x, int y){
+		return pixels[y * width + x].getRgbInt();
+	}
+	
+	public void addShape(int[][] shape, int[][][] shapes){
+		final int[] tmppixels = getShapePixels(shape);
+		shapeRange.initialize().add(shape, true);
+		for(int jh = shapeRange.yMin; jh < shapeRange.yMax; jh++){
 			int jhw = jh * width;
-			for(int jw = xRange[0]; jw <xRange[1]; jw++){
+			for(int jw = shapeRange.xMin; jw < shapeRange.xMax; jw++){
 				int ind = jhw + jw;
 				if((tmppixels[ind] & 0xff) == 0){
 					AreaPixel p = pixels[ind];
 					p.shapes.add(shape);
-					int rgba[] = {0, 0, 0, 255};
-			        Iterator<int[][]> itr = p.shapes.iterator();
-			        while(itr.hasNext()){
-			        	convexCombine(itr.next()[0], rgba, rgba);
-			        }
-					Utils.colorNoAlpha(rgba, p.rgb);
+					p.rgbRegen(shapes);
 				}
 			}
 		}
 	}
 	
-	public void removeShape(int[][] shape){
-		Utils.findShapeRanges(shape, xRange, yRange);
-		for(int jh = yRange[0]; jh < yRange[1]; jh++){
+	public void removeShape(int[][] shape, int[][][] shapes){
+		shapeRange.initialize().add(shape, true);
+		for(int jh = shapeRange.yMin; jh < shapeRange.yMax; jh++){
 			int jhw = jh * width;
-			for(int jw = xRange[0]; jw <xRange[1]; jw++){
+			for(int jw = shapeRange.xMin; jw < shapeRange.xMax; jw++){
 				AreaPixel p = pixels[jhw + jw];
 				if(p.shapes.contains(shape)){
 					p.shapes.remove(shape);
-					int rgba[] = {0, 0, 0, 255};
-			        Iterator<int[][]> itr = p.shapes.iterator();
-			        while(itr.hasNext()){
-			        	convexCombine(itr.next()[0], rgba, rgba);
-			        }
-					Utils.colorNoAlpha(rgba, p.rgb);
+					p.rgbRegen(shapes);
 				}
 			}
 		}
-		
 	}
 	
-	public void removeAddShape(int[][][] raShapes, boolean revert){
-		if(revert){
-			if(raShapes[1] != null){
-				removeShape(raShapes[1]);
-			}
-			if(raShapes[0] != null){
-				addShape(raShapes[0]);
-			}
+	public void replaceShape(int[][] oldShape, int[][] newShape,  int[][][] shapes){
+		if(oldShape == null && newShape == null){
+			return;
+		}
+		if(oldShape == null){
+			addShape(newShape, shapes);
+		}else if(newShape == null){
+			removeShape(oldShape, shapes);
 		}else{
-			if(raShapes[0] != null){
-				removeShape(raShapes[0]);
-			}
-			if(raShapes[1] != null){
-				addShape(raShapes[1]);
+			final int[] tmppixels = getShapePixels(newShape);
+			shapeRange.initialize().add(oldShape).add(newShape, true);
+			boolean pixelChange = false;
+			AreaPixel p;
+			for(int jh = shapeRange.yMin; jh < shapeRange.yMax; jh++){
+				int jhw = jh * width;
+				for(int jw = shapeRange.xMin; jw < shapeRange.xMax; jw++){
+					int ind = jhw + jw;
+					p = pixels[jhw + jw];
+					if(p.shapes.contains(oldShape)){
+						p.shapes.remove(oldShape);
+						pixelChange = true;
+					}
+					if((tmppixels[ind] & 0xff) == 0){
+						p = pixels[ind];
+						p.shapes.add(newShape);
+						pixelChange = true;
+					}
+					if(pixelChange){
+						p.rgbRegen(shapes);
+					}
+				}
 			}
 		}
 	}
 
-	public static void convexCombine(int srcRgba[], int dstRgba[], int outRgba[]){
-		int outAlpha = srcRgba[3] + dstRgba[3] * (255 - srcRgba[3]);
-		if(outAlpha == 0){
-			for(int j = 0; j < 3; j++){
-				outRgba[j] = 0;
-			}
-		}else{
-			for(int j = 0; j < 3; j++){
-				outRgba[j] = (int)Math.round(((double)srcRgba[j] * (double) srcRgba[3]  + (double)dstRgba[j] * (double)(255 - srcRgba[3]))/(double) outAlpha);
-			}
-
-		}
-		outRgba[3] = outAlpha;
-		return;
-	}
 	
 	public double diff(int[][] targetRgb) {
 		assert (pixels.length == targetRgb.length);
@@ -132,11 +125,13 @@ public class Area {
 					+ Math.pow(res1[1] - res2[1], 2)
 					+ Math.pow(res1[2] - res2[2], 2));
 		}
-
 		return diff / (width * height);
 	}
-
-
+	
+	//temp. for testing
+	double getAverageShapeRangeShare(){
+		return shapeRange.averageArea / (width * height);
+	}
 
 
 }
