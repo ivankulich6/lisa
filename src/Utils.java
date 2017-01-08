@@ -48,6 +48,13 @@ public class Utils {
 		return ((rgb[0]&0x0ff)<<16) | ((rgb[1]&0x0ff)<<8) | (rgb[2]&0x0ff) | 255<<24;
 	}
 
+	private void printArr(int[] arr) {
+		String s = "";
+		for (int elem : arr) {
+			s += elem + ", ";
+		}
+		System.out.println(s);
+	}
 
 
 }
