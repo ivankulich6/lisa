@@ -19,7 +19,6 @@ public class ShapeRange {
 	public ShapeRange() {
 		initialize();
 		nRunCount = 0;
-		averageArea = 0;
 	}
 
 	public ShapeRange initialize() {
@@ -41,15 +40,5 @@ public class ShapeRange {
 		return this;
 	}
 
-	// temporary for testing
-	public ShapeRange add(int[][] shape, boolean addToAverage) {
-		add(shape);
-		if (shape != null && addToAverage) {
-			averageArea = ((double) 1 / (double) (nRunCount + 1))
-					* (nRunCount * averageArea + Math.max(0, (xMax - xMin)) * Math.max(0, (yMax - yMin)));
-			++nRunCount;
-		}
-		return this;
-	}
 
 }
