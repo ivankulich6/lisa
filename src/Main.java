@@ -104,7 +104,7 @@ public class Main {
 	}
 
 	public void run() throws IOException {
-		BufferedImage target = readImage("women_micro.jpg");
+		BufferedImage target = readImage("women_small.jpg");
 		BufferedImage img;
 		width = target.getWidth();
 		height = target.getHeight();
@@ -113,6 +113,7 @@ public class Main {
 
 		prepareGUI();
 		int cnt = 0;
+		int cntSuccess = 0;
 
 		while (true) {
 			cnt++;
@@ -120,17 +121,15 @@ public class Main {
 			boolean success = area.doRandomChange();
 			if (success) {
 				System.out.print("+");
-				if(cnt%50 < 25){
-					img = drawArea(area);
-				}else{
-					img = drawShapes(area.shapes);
-				}
+				img = drawArea(area);
+//				img = drawShapes(area.shapes);
+				cntSuccess++;
 				drawing.draw(img);
 			}
 			if (cnt % 100 == 0) {
 				System.out.println("");
-				System.out.println("Diff: " + area.diff + ", dt: " + area.diffTest() + " cnt: " + cnt + " polygons: " + area.shapes.length + " temp: " + area.temp
-						+ " avgRange: " + area.getAverageShapeRangeShare());
+				System.out.println("Diff=" + area.diff + ", dt=" + area.diffTest() + ", cnt=" + cnt + ", polygons=" + area.shapes.length + ", temp=" + area.temp
+				);
 			}
 			if(gWindowClosing){
 				area.saveShapes("testdata/shapes01.txt");

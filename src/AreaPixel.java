@@ -4,13 +4,13 @@ import java.util.TreeMap;
 public class AreaPixel {
 	public int[] rgb;
 	public TreeMap<Integer, int[][]> shapes;
-	public int[] rgbWork;
+	public int[] newRgb;
 
 
 	AreaPixel() {
 		rgb = new int[] { 255, 255, 255 };
 		shapes = new TreeMap<Integer, int[][]>();
-		rgbWork = new int[3];
+		newRgb = new int[3];
 	}
 
 	public int getRgbInt() {
@@ -37,19 +37,17 @@ public class AreaPixel {
 	
 		int diffOld = diff(targetRgb);
 		rgbRegen();
-		return diff(rgbWork, targetRgb) - diffOld;
+		return diff(targetRgb) - diffOld;
 		
-		/*
-		if(phase == 0){
-			int diffOld = diff(targetRgb);
-			rgbRegen(rgbWork);
-			return diff(rgbWork, targetRgb) - diffOld;
-		}else if(phase == 1){
-			System.arraycopy(rgbWork, 0, rgb, 0, 3);
-			return 0;
-		}
-		return 0;
-		*/
+//		if(phase == 0){
+//			int diffOld = diff(targetRgb);
+//			rgbRegen(newRgb);
+//			return diff(newRgb, targetRgb) - diffOld;
+//		}else if(phase == 1){
+//			System.arraycopy(newRgb, 0, rgb, 0, 3);
+//			return 0;
+//		}
+//		return 0;
 	}
 
 	public static void convexCombine(int srcRgba[], float dstRgba[], float outRgba[]) {
@@ -90,8 +88,6 @@ public class AreaPixel {
 			}
 		} else {
 			for (int j = 0; j < 3; j++) {
-				// (srcRgba[j] * srcAlpha +
-				// + dstRgba[j] * (1 - srcAlpha))/outAlpha
 				outRgba[j] = (int) Math.round(
 						((double) srcRgba[j] * (double) srcRgba[3] + (double) dstRgba[j] * (double) (255 - srcRgba[3]))
 								/ outAlpha);
@@ -102,7 +98,7 @@ public class AreaPixel {
 		return;
 	}
 	
-	public int diff(int rgb1[], int rgb2[]) {
+	public static int diff(int rgb1[], int rgb2[]) {
 		return  Math.abs(rgb2[0] - rgb1[0]) + Math.abs(rgb2[1] - rgb1[1]) + Math.abs(rgb2[2] - rgb1[2]);
 	}
 

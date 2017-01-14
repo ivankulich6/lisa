@@ -13,15 +13,26 @@ public class Area {
 	private AreaPixel[] pixels;
 	private ShapeRange shapeRange;
 	private BufferedImage tempBufferedImage;
-	int[][][] shapes = new int[0][][];
+	int[][][] shapes;
+	int pointsCount;
 	private int gOrder;
 	private  int[][] targetRgb;
-	private int[][][] oldNewShapes;
-	private double gDiff;
+	Mutation mutation;
+	private double addeDiff;				//additive difference
+	private double newAddeDiff;
 	double diff;
 	private double newDiff;
 	double temp;
 	Random randg;
+	
+	public class Mutation{
+		int [][] oldShape = null;
+		int [][] newShape = null;
+		int index = 0;				//mutated shape index
+		int shapesCount = 0;		//mutated shapes count
+		int pointsCount = 0;		//mutated shapes points count
+	}
+
 
 	Area(int width, int height) {
 		assert (width > 0 && height > 0);
@@ -32,18 +43,20 @@ public class Area {
 			pixels[j] = new AreaPixel();
 		}
 		shapes = new int[0][][];
+		pointsCount = 0;
 		shapeRange = new ShapeRange();
 		tempBufferedImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
 		gOrder = 0;
-		oldNewShapes = new int[2][][];
+		mutation = new Mutation();
 		temp = 1;
+		//randg = new Random(0);
 		randg = new Random();
 	}
 	
 	public void setTargetRgb(int[][]rgb){
 		this.targetRgb = rgb;
-		gDiff = diff();
-		diff = penaltyShape(shapes);
+		addeDiff = newAddeDiff = diff();
+		diff = penaltyShape(pointsCount);
 	}
 
 	private int[] getShapePixels(int[][] shape) {
@@ -88,7 +101,6 @@ public class Area {
 				}
 			}
 		}
-		gDiff += diffOfDiff;
 		return diffOfDiff;
 	}
 
@@ -107,7 +119,6 @@ public class Area {
 				}
 			}
 		}
-		gDiff += diffOfDiff;
 		return diffOfDiff;
 	}
 
@@ -128,7 +139,6 @@ public class Area {
 			AreaPixel p;
 			double diffOfDiff = 0;
 			shapeRange.initialize().add(oldShape).add(newShape);
-
 			for (int jh = shapeRange.yMin; jh < shapeRange.yMax; jh++) {
 				int jhw = jh * width;
 				for (int jw = shapeRange.xMin; jw < shapeRange.xMax; jw++) {
@@ -142,7 +152,7 @@ public class Area {
 						if(colorsDiffer){
 							pixelChange = true;
 						}
-					} else {
+					} else{
 						if (pixelInOld) {
 							p.shapes.remove(orderOldShape);
 							pixelChange = true;
@@ -157,7 +167,6 @@ public class Area {
 					}
 				}
 			}
-			gDiff += diffOfDiff;
 			return diffOfDiff;
 		}
 	}
@@ -170,47 +179,48 @@ public class Area {
 		return false;
 	}
 
-	public double diff() {
+	
+	private double penalty(int pointsCount) {
+		return pointsCount * pointsCount / 10000000000.0;
+	}
+	private double penaltyRgb() {
+		//return newAddeDiff/(width * height);
+		return addeDiff/(width * height);
+	}
+
+	private double penaltyShape(int nPoints) {
+		return penaltyRgb() + penalty(nPoints);
+	}
+
+	private double penalty(int[][][] shapes) {
+		return penalty(recalcPointsCount(shapes));
+	}
+	
+	private double penaltyShape(int[][][] shapes) {
+		return  penaltyRgb() + penalty(shapes);
+	}
+	
+	private int recalcPointsCount(int[][][] shapes) {
+		int pc = 0;
+		for (int[][] shape : shapes) {
+			pc += shape.length - 1;
+		}
+		return pc;
+	}
+
+	public double diffTest() {
+		return diff()/(width * height) + penalty(shapes);
+	}
+	
+	private double diff() {
 		assert (pixels.length == targetRgb.length);
 		double diff = 0;
-		int[] res1;
-		int[] res2;
 		for (int j = 0; j < pixels.length; j++) {
-			res1 = pixels[j].rgb;
-			res2 = targetRgb[j];
-			//diff += Math.sqrt(Math.pow(res1[0] - res2[0], 2) + Math.pow(res1[1] - res2[1], 2) + Math.pow(res1[2] - res2[2], 2));
-			diff += Math.abs(res1[0] - res2[0]) + Math.abs(res1[1] - res2[1]) + Math.abs(res1[2] - res2[2]);
+			diff += AreaPixel.diff(pixels[j].rgb, targetRgb[j]);
 		}
 		return diff;
 	}
 
-	// temp. for testing
-	double getAverageShapeRangeShare() {
-		return shapeRange.averageArea / (width * height);
-	}
-	
-	private double penalty(int[][][] shapes) {
-		double res = 0;
-		for (int[][] shape : shapes) {
-			res += shape.length - 1;
-		}
-		return res * res / 10000000000.0;
-	}
-	
-	private double penalty(int nPoints) {
-		return nPoints * nPoints / 10000000000.0;
-	}
-
-	private double penaltyShape(int[][][] shapes) {
-		return gDiff/(width * height) + penalty(shapes);
-	}
-	
-	private double penaltyShape(int nPoints) {
-		return gDiff/(width * height) + penalty(nPoints);
-	}
-	public double diffTest() {
-		return diff()/(width * height) + penalty(shapes);
-	}
 
 	private int[][] getRandomShape() {
 		int[] color = new int[5];
@@ -241,29 +251,31 @@ public class Area {
 		return res;
 	}
 	
-	
-	private void getRandomChange(int[][][] oldNewShapes, int changeParams[]){
+
+	private void getRandomMutation(){
 		int opcode = randg.nextInt(100);
 		int n = shapes.length;
-		oldNewShapes[0] = null;
-		oldNewShapes[1] = null;
-		changeParams[0] = n;  //changed shapes length
-		changeParams[1] = -1; //changed shape index
-
-		if (opcode < 20) {
-			oldNewShapes[1] = getRandomShape();
-			changeParams[0] = n + 1;
+		mutation.oldShape = null;
+		mutation.newShape = null;
+		mutation.index = n;
+		mutation.shapesCount = n;
+		mutation.pointsCount = pointsCount;
+		if (opcode < 20) {	//add shape
+			mutation.newShape = getRandomShape();
+			mutation.index = n + 1;
+			mutation.pointsCount = pointsCount + mutation.newShape.length - 1;
 			return;
-		} else if (opcode < 40) {
+		} else if (opcode < 40) {	//remove shape
 			if (n == 0) {
 				return;
 			}
 			int index = randg.nextInt(n);
-			oldNewShapes[0] = shapes[index];
-			changeParams[0] = n - 1;
-			changeParams[1] = index;
+			mutation.oldShape = shapes[index];
+			mutation.index = index;
+			mutation.shapesCount = n - 1;
+			mutation.pointsCount = pointsCount - (shapes[index].length - 1);
 			return;
-		} else {
+		} else {	//modify shape
 			if (n == 0) {
 				return;
 			}
@@ -294,24 +306,25 @@ public class Area {
 				tmp[inninner] = Math.min(tmp[inninner], height);
 				tmp[inninner] = Math.max(tmp[inninner], 0);
 			}
-			oldNewShapes[0] = shapes[index];
-			oldNewShapes[1] = newShape;
-			changeParams[1] = index;
+			mutation.oldShape = shapes[index];
+			mutation.newShape = newShape;
+			mutation.index = index;
+			mutation.pointsCount =  pointsCount - shapes[index].length + newShape.length;
 			return;
 		}
 		
 	}
 	
-	private int[][][] alterShapes(int index, int[][][] oldNewShapes) {
+	private int[][][] alterShapes(int index, int[][] oldShape, int[][] newShape) {
 		int n = shapes.length;
-		if(oldNewShapes[0] == null && oldNewShapes[1] == null){
+		if(oldShape == null && newShape == null){
 			return shapes;
-		} else if (oldNewShapes[0] == null){
+		} else if (oldShape == null){
 			int[][][] newShapes = new int[n + 1][][];
 			System.arraycopy(shapes, 0, newShapes, 0, n);
-			newShapes[n] = oldNewShapes[1];
+			newShapes[n] = newShape;
 			return newShapes;
-		} else if (oldNewShapes[1] == null){
+		} else if (newShape == null){
 			int[][][] newShapes = new int[n - 1][][];
 			System.arraycopy(shapes, 0, newShapes, 0, index);
 			System.arraycopy(shapes, index + 1, newShapes, index, (n - 1 - index));
@@ -319,7 +332,7 @@ public class Area {
 		} else {
 			int[][][] newShapes = new int[n][][];
 			System.arraycopy(shapes, 0, newShapes, 0, n);
-			newShapes[index] = oldNewShapes[1];
+			newShapes[index] = newShape;
 			return newShapes;
 		}
 	}
@@ -342,13 +355,11 @@ public class Area {
 		
 
 		temp = Math.max(temp, Math.pow(10, -10));
-		int changeParams[] = new int[2];
-		getRandomChange(oldNewShapes, changeParams);
-		int[][][] newShapes = alterShapes(changeParams[1], oldNewShapes);
-		
-		replaceShape(oldNewShapes[0], oldNewShapes[1], 0);
-		newDiff = penaltyShape(newShapes);
-		//newDiff = penaltyShape(3 * changeParams[0]);
+		int changeParams[] = new int[3];
+		getRandomMutation();
+		//newAddeDiff = addeDiff + replaceShape(mutation.oldShape, mutation.newShape, 0);
+		addeDiff = addeDiff + replaceShape(mutation.oldShape, mutation.newShape, 0);
+		newDiff = penaltyShape(mutation.pointsCount);
 		// newDiff < d -> vzdy true
 		// newDiff - d = temp -> akceptujem so sancou e^-1
 		// newDiff - d = 2temp -> akceptujem so sancou e^-2
@@ -357,14 +368,14 @@ public class Area {
 			if (newDiff - diff < -0.00001) {
 				temp *= 0.5;
 			}
-			//replaceShape(oldNewShapes[0], oldNewShapes[1], 1);
-
-			//shapes = newShapes;
-			shapes = alterShapes(changeParams[1], oldNewShapes);
+			//replaceShape(mutation.oldShape, mutation.newShape, 1);
+			shapes = alterShapes(mutation.index, mutation.oldShape, mutation.newShape);
+			pointsCount = mutation.pointsCount;
+			//addeDiff = newAddeDiff;
 			diff = newDiff;
 			return true;
 		} else {
-			//replaceShape(oldNewShapes[1], oldNewShapes[0], 2);
+			addeDiff = addeDiff + replaceShape(mutation.newShape, mutation.oldShape, 2);
 			temp *= 1.002;
 			return false;
 		}
@@ -390,8 +401,5 @@ public class Area {
 		}
 	}
 
-	
-	
-	
 
 }
