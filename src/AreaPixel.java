@@ -5,12 +5,13 @@ public class AreaPixel {
 	public int[] rgb;
 	public TreeMap<Integer, int[][]> shapes;
 	public int[] newRgb;
-
+	public int[] targetRgb;
 
 	AreaPixel() {
 		rgb = new int[] { 255, 255, 255 };
 		shapes = new TreeMap<Integer, int[][]>();
 		newRgb = new int[3];
+		targetRgb = new int[3];
 	}
 
 	public int getRgbInt() {
@@ -19,7 +20,92 @@ public class AreaPixel {
 
 	// IDEA: This seems to be the bottleneck of the whole computation. If you
 	// can write this faster, it may improve the speed quite significantly.
+	
+	public void useNewRgb(){
+		System.arraycopy(newRgb, 0, rgb, 0, 3);
+	}
+	
+	public int prepareAddShape(int[][] shape){
+		int diffOld = diff();
+		int order = getShapeOrder(shape);
+		shapes.put(order, shape);
+		rgbRegen(newRgb);
+		shapes.remove(order);
+		return diff(newRgb, targetRgb) - diffOld;
+	}
+	
+	public int prepareRemoveShape(int[][] shape){
+		int diffOld = diff();
+		int order = getShapeOrder(shape);
+		shapes.remove(order);
+		rgbRegen(newRgb);
+		shapes.put(order, shape);
+		return diff(newRgb, targetRgb) - diffOld;
+	}
 
+	public int prepareReplaceShape(int[][] oldShape, int[][] newShape, int intype, boolean sameRgba){
+		int orderOld = getShapeOrder(oldShape);
+		int orderNew = getShapeOrder(newShape);
+		if (intype == 3 && orderOld == orderNew && sameRgba) {
+			System.arraycopy(rgb, 0, newRgb, 0, 3);
+			return  0;
+		}else{
+			int diffOld = diff();
+			if(intype == 1){
+				shapes.remove(orderOld);
+			}else if(intype == 2){
+				shapes.put(orderNew, newShape);
+			}else if(intype == 3){
+				if(orderNew != orderOld){
+					shapes.remove(orderOld);
+				}
+				shapes.put(orderNew, newShape);
+			}
+			rgbRegen(newRgb);
+			if(intype == 1){
+				shapes.put(orderOld, oldShape);
+			}else if(intype == 2){
+				shapes.remove(orderNew);
+			}else if(intype == 3){
+				if(orderNew != orderOld){
+					shapes.remove(orderNew);
+				}
+				shapes.put(orderOld, oldShape);
+			}
+			return diff(newRgb, targetRgb) - diffOld;
+		}
+	}
+	
+	public void addShape(int[][] shape){
+		shapes.put(getShapeOrder(shape), shape);
+		System.arraycopy(newRgb, 0, rgb, 0, 3);
+	}
+	
+	public void removeShape(int[][] shape){
+		shapes.remove(getShapeOrder(shape));
+		System.arraycopy(newRgb, 0, rgb, 0, 3);
+	}
+	
+	public void replaceShape(int[][] oldShape, int[][] newShape, int intype){
+		int orderOld = getShapeOrder(oldShape);
+		int orderNew = getShapeOrder(newShape);
+		if(intype == 1){
+			shapes.remove(orderOld);
+		}else if(intype == 2){
+			shapes.put(orderNew, newShape);
+		}else if(intype == 3){
+			if(orderNew != orderOld){
+				shapes.remove(orderOld);
+			}
+			shapes.put(orderNew, newShape);
+		}
+		System.arraycopy(newRgb, 0, rgb, 0, 3);
+	}
+	
+	public static int getShapeOrder(int[][] shape) {
+		return shape[0][4];
+	}
+	
 	public void rgbRegen(int[] rgb) {
 		float rgba[] = { 255, 255, 255, 255 };
 		for (Map.Entry<Integer, int[][]> entry : shapes.entrySet()) {
@@ -33,23 +119,6 @@ public class AreaPixel {
 		rgbRegen(this.rgb);
 	}
 	
-	public int rgbRegen(int[] targetRgb, int phase) {
-	
-		int diffOld = diff(targetRgb);
-		rgbRegen();
-		return diff(targetRgb) - diffOld;
-		
-//		if(phase == 0){
-//			int diffOld = diff(targetRgb);
-//			rgbRegen(newRgb);
-//			return diff(newRgb, targetRgb) - diffOld;
-//		}else if(phase == 1){
-//			System.arraycopy(newRgb, 0, rgb, 0, 3);
-//			return 0;
-//		}
-//		return 0;
-	}
-
 	public static void convexCombine(int srcRgba[], float dstRgba[], float outRgba[]) {
 		float srcRgba3 = (float) srcRgba[3];
 		float srcRgba3Compl = 255 - srcRgba3;
@@ -69,7 +138,7 @@ public class AreaPixel {
 		return;
 	}
 	
-	public void rgbRegenInt() {
+	public void rgbRegenInt(int[] rgb) {
 		// TODO: work with floats, only when you combine all the shapes, convert
 		// to int.
 		int rgba[] = { 255, 255, 255, 255 };
@@ -79,6 +148,11 @@ public class AreaPixel {
 		}
 		Utils.colorNoAlpha(rgba, rgb);
 	}
+
+	public void rgbRegenInt() {
+		rgbRegenInt(this.rgb);
+	}
+	
 
 	public static void convexCombineInt(int srcRgba[], int dstRgba[], int outRgba[]) {
 		double outAlpha = (double) srcRgba[3] + (double) (dstRgba[3] * (255 - srcRgba[3])) / (double) 255;
@@ -104,6 +178,10 @@ public class AreaPixel {
 
 	public int diff(int rgb[]) {
 		return  diff(this.rgb, rgb);
+	}
+	
+	public int diff() {
+		return  diff(rgb, targetRgb);
 	}
 
 

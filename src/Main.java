@@ -4,11 +4,8 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
-import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.util.Random;
 
 import javax.imageio.ImageIO;
 import javax.swing.JFrame;
@@ -21,8 +18,6 @@ public class Main {
 	JFrame mainFrame;
 	DrawingPanel drawing;
 	boolean gWindowClosing = false;
-
-
 
 	/*
 	 * shapes: [[[r, g, b, a, o], [p0x, p0y], [p1x, p2x], ...], ...] o = unique,
@@ -72,8 +67,6 @@ public class Main {
 	}
 
 
-
-
 	private void prepareGUI() throws IOException {
 		mainFrame = new JFrame("Java Swing Examples");
 		// mainFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -106,6 +99,7 @@ public class Main {
 	public void run() throws IOException {
 		BufferedImage target = readImage("women_small.jpg");
 		BufferedImage img;
+		BufferedImage shapesImg;
 		width = target.getWidth();
 		height = target.getHeight();
 		Area area = new Area(width, height);
@@ -119,17 +113,25 @@ public class Main {
 			cnt++;
 			
 			boolean success = area.doRandomChange();
+			//System.out.print(area.mutationType);
 			if (success) {
 				System.out.print("+");
 				img = drawArea(area);
-//				img = drawShapes(area.shapes);
 				cntSuccess++;
 				drawing.draw(img);
 			}
 			if (cnt % 100 == 0) {
+				shapesImg = drawShapes(area.shapes);
+				//drawing.draw(shapesImg);
+
+				double dt2 = area.diffTest(addeDiff(shapesImg, target));
 				System.out.println("");
-				System.out.println("Diff=" + area.diff + ", dt=" + area.diffTest() + ", cnt=" + cnt + ", polygons=" + area.shapes.length + ", temp=" + area.temp
+				System.out.println("Diff=" + area.diff + ", dt=" + area.diffTest() + ", dt2=" + dt2 + ", cnt=" + cnt + ", polygons=" + area.shapes.length + ", temp=" + area.temp
 				);
+//				Diff	incremental diff, own merging of transparent colors
+//				dt		regenerated whole area diff, own merging of transparent colors	
+//				dt2		regenerated whole area diff, merging of transparent colors by imported Graphics	(fillPolygon)
+				
 			}
 			if(gWindowClosing){
 				area.saveShapes("testdata/shapes01.txt");
@@ -141,21 +143,20 @@ public class Main {
 	}
 
 
-	public double diff(BufferedImage img1, BufferedImage img2) {
+	public double addeDiff(BufferedImage img1, BufferedImage img2) {
 		final int[] pixels1 = ((DataBufferInt) img1.getRaster().getDataBuffer()).getData();
 		final int[] pixels2 = ((DataBufferInt) img2.getRaster().getDataBuffer()).getData();
 		assert (pixels1.length == pixels2.length);
 		double diff = 0;
-		int[] res1 = new int[3];
-		int[] res2 = new int[3];
+		int[] rgb1 = new int[3];
+		int[] rgb2 = new int[3];
 		for (int pixel1 = 0, pixel2 = 0; pixel1 < pixels1.length; pixel1 += 1, pixel2 += 1) {
-			Utils.getPixel(pixels1[pixel1], res1);
-			Utils.getPixel(pixels2[pixel2], res2);
-			diff += Math.sqrt(
-					Math.pow(res1[0] - res2[0], 2) + Math.pow(res1[1] - res2[1], 2) + Math.pow(res1[2] - res2[2], 2));
+			Utils.getPixel(pixels1[pixel1], rgb1);
+			Utils.getPixel(pixels2[pixel2], rgb2);
+			diff += AreaPixel.diff(rgb1, rgb2);
 		}
 
-		return diff / (width * height);
+		return diff;
 	}
 
 }
