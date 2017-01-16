@@ -84,7 +84,7 @@ public class Main {
 	}
 
 	public static void main(String[] args) throws IOException {
-		System.out.println("Hello");
+	    System.out.println("Hello");
 		Main p = new Main();
 		p.run();
 	}
@@ -97,6 +97,8 @@ public class Main {
 	}
 
 	public void run() throws IOException {
+	    long startTime = System.currentTimeMillis();
+
 		BufferedImage target = readImage("women_small.jpg");
 		BufferedImage img;
 		BufferedImage shapesImg;
@@ -116,13 +118,15 @@ public class Main {
 			//System.out.print(area.mutationType);
 			if (success) {
 				System.out.print("+");
-				img = drawArea(area);
 				cntSuccess++;
-				drawing.draw(img);
+				if (cntSuccess % 10 == 0) {
+					img = drawArea(area);
+					drawing.draw(img);
+				}
 			}
 			if (cnt % 100 == 0) {
 				shapesImg = drawShapes(area.shapes);
-				//drawing.draw(shapesImg);
+//				drawing.draw(shapesImg);
 
 				double dt2 = area.diffTest(addeDiff(shapesImg, target));
 				System.out.println("");
@@ -131,13 +135,18 @@ public class Main {
 //				Diff	incremental diff, own merging of transparent colors
 //				dt		regenerated whole area diff, own merging of transparent colors	
 //				dt2		regenerated whole area diff, merging of transparent colors by imported Graphics	(fillPolygon)
-				
+			
+//				if(cnt >= 5000){
+//					gWindowClosing = true;
+//				}
 			}
 			if(gWindowClosing){
+				long stopTime = System.currentTimeMillis();
+			    long elapsedTime = stopTime - startTime;
+			    System.out.println("elapsedTime = " + elapsedTime + " milliseconds");
 				area.saveShapes("testdata/shapes01.txt");
 				System.exit(0);
 				break;
-				
 			}
 		}
 	}

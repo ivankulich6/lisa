@@ -98,7 +98,7 @@ public class Area {
 	}
 
 	private int getShapeOrder(int[][] shape) {
-		return shape[0][4];
+		return AreaPixel.getShapeOrder(shape);
 	}
 	
 	public void findMutaPixelsNewShape(int[][] newShape){

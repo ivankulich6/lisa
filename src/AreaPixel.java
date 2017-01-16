@@ -14,63 +14,80 @@ public class AreaPixel {
 		targetRgb = new int[3];
 	}
 
-	public int getRgbInt() {
-		return Utils.getRgbInt(rgb);
-	}
 
 	public int prepareAddShape(int[][] shape){
 		int diffOld = diff();
-		int order = getShapeOrder(shape);
-		shapes.put(order, shape);
-		rgbRegen(newRgb);
-		shapes.remove(order);
+		float rgba[] = { 255, 255, 255, 255 };
+		for (Map.Entry<Integer, int[][]> entry : shapes.entrySet()) {
+			convexCombine(entry.getValue()[0], rgba, rgba);
+		}
+		convexCombine(shape[0], rgba, rgba);
+		Utils.colorNoAlpha(rgba, newRgb);
 		return diff(newRgb, targetRgb) - diffOld;
 	}
 	
 	public int prepareRemoveShape(int[][] shape){
 		int diffOld = diff();
 		int order = getShapeOrder(shape);
-		shapes.remove(order);
-		rgbRegen(newRgb);
-		shapes.put(order, shape);
+		int[][] savedShape;
+		float rgba[] = { 255, 255, 255, 255 };
+		for (Map.Entry<Integer, int[][]> entry : shapes.entrySet()) {
+			savedShape = entry.getValue();
+			if(getShapeOrder(savedShape) != order){
+				convexCombine(savedShape[0], rgba, rgba);
+			}
+		}
+		Utils.colorNoAlpha(rgba, newRgb);
 		return diff(newRgb, targetRgb) - diffOld;
 	}
 
 	public int prepareReplaceShape(int[][] oldShape, int[][] newShape, int intype, boolean sameRgba){
-		int orderOld = getShapeOrder(oldShape);
-		int orderNew = getShapeOrder(newShape);
-		if (intype == 3 && orderOld == orderNew && sameRgba) {
+		int order = getShapeOrder(newShape);
+		assert order == getShapeOrder(oldShape);
+		if (intype == 3 && sameRgba) {
 			System.arraycopy(rgb, 0, newRgb, 0, 3);
 			return  0;
 		}else{
 			int diffOld = diff();
+			int[][] savedShape = null;
+			float rgba[] = { 255, 255, 255, 255 };
 			if(intype == 1){
-				shapes.remove(orderOld);
-			}else if(intype == 2){
-				shapes.put(orderNew, newShape);
-			}else if(intype == 3){
-				if(orderNew != orderOld){
-					shapes.remove(orderOld);
+				for (Map.Entry<Integer, int[][]> entry : shapes.entrySet()) {
+					savedShape = entry.getValue();
+					if(getShapeOrder(savedShape) != order){
+						convexCombine(savedShape[0], rgba, rgba);
+					}		
 				}
-				shapes.put(orderNew, newShape);
-			}
-			rgbRegen(newRgb);
-			if(intype == 1){
-				shapes.put(orderOld, oldShape);
 			}else if(intype == 2){
-				shapes.remove(orderNew);
-			}else if(intype == 3){
-				if(orderNew != orderOld){
-					shapes.remove(orderNew);
+				boolean add = true;
+				for (Map.Entry<Integer, int[][]> entry : shapes.entrySet()) {
+					savedShape = entry.getValue();
+					if(getShapeOrder(savedShape) > order){
+						if(add){
+							convexCombine(newShape[0], rgba, rgba);
+							add = false;
+						}
+						convexCombine(savedShape[0], rgba, rgba);
+					}else{
+						convexCombine(savedShape[0], rgba, rgba);
+					}
 				}
-				shapes.put(orderOld, oldShape);
+				if(add){
+					convexCombine(newShape[0], rgba, rgba);
+				}
+			}else if(intype == 3){
+				for (Map.Entry<Integer, int[][]> entry : shapes.entrySet()) {
+					savedShape = entry.getValue();
+					if(getShapeOrder(savedShape) != order){
+						convexCombine(savedShape[0], rgba, rgba);
+					}else{
+						convexCombine(newShape[0], rgba, rgba);
+					}
+				}
 			}
+			Utils.colorNoAlpha(rgba, newRgb);
 			return diff(newRgb, targetRgb) - diffOld;
 		}
-	}
-	
-	public void useNewRgb(){
-		System.arraycopy(newRgb, 0, rgb, 0, 3);
 	}
 	
 	public void addShape(int[][] shape){
@@ -102,6 +119,15 @@ public class AreaPixel {
 	public static int getShapeOrder(int[][] shape) {
 		return shape[0][4];
 	}
+	
+	private void useNewRgb(){
+		System.arraycopy(newRgb, 0, rgb, 0, 3);
+	}
+
+	public int getRgbInt() {
+		return Utils.getRgbInt(rgb);
+	}
+
 
 	// IDEA: This seems to be the bottleneck of the whole computation. If you
 	// can write this faster, it may improve the speed quite significantly.
@@ -109,8 +135,7 @@ public class AreaPixel {
 	public void rgbRegen(int[] rgb) {
 		float rgba[] = { 255, 255, 255, 255 };
 		for (Map.Entry<Integer, int[][]> entry : shapes.entrySet()) {
-			int[][] shape = entry.getValue();
-			convexCombine(shape[0], rgba, rgba);
+			convexCombine( entry.getValue()[0], rgba, rgba);
 		}
 		Utils.colorNoAlpha(rgba, rgb);
 	}
