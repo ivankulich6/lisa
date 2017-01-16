@@ -18,8 +18,8 @@ public class Area {
 	private int gOrder;
 	//private  int[][] targetRgb;
 	Mutation mutation;
-	MutaPoint[] mutaPoints;
-	int mutaPointsCount;
+	MutaPixel[] mutaPixels;
+	int mutaPixelsCount;
 	private double addeDiff;				//additive difference
 	private double newAddeDiff;
 	double diff;
@@ -37,7 +37,7 @@ public class Area {
 		int pointsCount = 0;		//mutated shapes points count
 	}
 	
-	public class MutaPoint{
+	public class MutaPixel{
 		int index = 0;
 		int intype = 0;		// 1=only in oldShape, 2 = only in newShape, 3 = in both
 	}
@@ -56,9 +56,9 @@ public class Area {
 		tempBufferedImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
 		gOrder = 0;
 		mutation = new Mutation();
-		mutaPoints = new MutaPoint[width * height];
+		mutaPixels = new MutaPixel[width * height];
 		for (int j = 0; j < height * width; j++) {
-			mutaPoints[j] = new MutaPoint();
+			mutaPixels[j] = new MutaPixel();
 		}
 
 		temp = 1;
@@ -101,16 +101,16 @@ public class Area {
 		return shape[0][4];
 	}
 	
-	public void findMutaPointsNewShape(int[][] newShape){
+	public void findMutaPixelsNewShape(int[][] newShape){
 		final int[] tmppixels = getShapePixels(newShape);
 		shapeRange.initialize().add(newShape);
-		mutaPointsCount = 0;
+		mutaPixelsCount = 0;
 		for (int jh = shapeRange.yMin; jh < shapeRange.yMax; jh++) {
 			int jhw = jh * width;
 			for (int jw = shapeRange.xMin; jw < shapeRange.xMax; jw++) {
 				int ind = jhw + jw;
 				if ((tmppixels[ind] & 0xff) == 0) {
-					MutaPoint mp = mutaPoints[mutaPointsCount++];
+					MutaPixel mp = mutaPixels[mutaPixelsCount++];
 					mp.index = ind;
 					mp.intype = 2;
 				}
@@ -119,17 +119,17 @@ public class Area {
 		return;
 	}
 		
-	public void findMutaPointsOldShape(int[][] oldShape){
+	public void findMutaPixelsOldShape(int[][] oldShape){
 		int order = getShapeOrder(oldShape);
 		shapeRange.initialize().add(oldShape);
-		mutaPointsCount = 0;
+		mutaPixelsCount = 0;
 		for (int jh = shapeRange.yMin; jh < shapeRange.yMax; jh++) {
 			int jhw = jh * width;
 			for (int jw = shapeRange.xMin; jw < shapeRange.xMax; jw++) {
 				int ind = jhw + jw;
 				AreaPixel p = pixels[ind];
 				if (p.shapes.containsKey(order)) {
-					MutaPoint mp = mutaPoints[mutaPointsCount++];
+					MutaPixel mp = mutaPixels[mutaPixelsCount++];
 					mp.index = ind;
 					mp.intype = 1;
 				}
@@ -138,14 +138,14 @@ public class Area {
 		return;
 	}
 		
-	public void findMutaPointsOldNewShape(int[][] oldShape, int[][] newShape){
+	public void findMutaPixelsOldNewShape(int[][] oldShape, int[][] newShape){
 		int order = getShapeOrder(oldShape);
 		int pixelInOld = 0;
 		int pixelInNew = 0;
 		final int[] tmppixels = getShapePixels(newShape);
 		AreaPixel p;
 		shapeRange.initialize().add(oldShape).add(newShape);
-		mutaPointsCount = 0;
+		mutaPixelsCount = 0;
 		for (int jh = shapeRange.yMin; jh < shapeRange.yMax; jh++) {
 			int jhw = jh * width;
 			for (int jw = shapeRange.xMin; jw < shapeRange.xMax; jw++) {
@@ -154,7 +154,7 @@ public class Area {
 				pixelInOld = p.shapes.containsKey(order) ? 1 : 0;
 				pixelInNew = (tmppixels[ind] & 0xff) == 0 ? 1 : 0;
 				if(pixelInOld + pixelInNew > 0){
-					MutaPoint mp = mutaPoints[mutaPointsCount++];
+					MutaPixel mp = mutaPixels[mutaPixelsCount++];
 					mp.index = ind;
 					mp.intype = pixelInOld + 2 * pixelInNew;
 				}
@@ -166,32 +166,32 @@ public class Area {
 	
 	public double prepareAddShape(int[][] newShape) {
 		double diffOfDiff = 0;
-		findMutaPointsNewShape(newShape);
-		for(int j = 0; j < mutaPointsCount; j++){
-			diffOfDiff += pixels[mutaPoints[j].index].prepareAddShape(newShape);
+		findMutaPixelsNewShape(newShape);
+		for(int j = 0; j < mutaPixelsCount; j++){
+			diffOfDiff += pixels[mutaPixels[j].index].prepareAddShape(newShape);
 		}
 		return diffOfDiff;
 	}
 
 	public void addShape(int[][] newShape) {
-		for(int j = 0; j < mutaPointsCount; j++){
-			pixels[mutaPoints[j].index].addShape(newShape);
+		for(int j = 0; j < mutaPixelsCount; j++){
+			pixels[mutaPixels[j].index].addShape(newShape);
 		}
 		return;
 	}
 
 	public double prepareRemoveShape(int[][] oldShape) {
 		double diffOfDiff = 0;
-		findMutaPointsOldShape(oldShape);
-		for(int j = 0; j < mutaPointsCount; j++){
-			diffOfDiff += pixels[mutaPoints[j].index].prepareRemoveShape(oldShape);
+		findMutaPixelsOldShape(oldShape);
+		for(int j = 0; j < mutaPixelsCount; j++){
+			diffOfDiff += pixels[mutaPixels[j].index].prepareRemoveShape(oldShape);
 		}
 		return diffOfDiff;
 	}
 	
 	public void removeShape(int[][] oldShape) {
-		for(int j = 0; j < mutaPointsCount; j++){
-			pixels[mutaPoints[j].index].removeShape(oldShape);
+		for(int j = 0; j < mutaPixelsCount; j++){
+			pixels[mutaPixels[j].index].removeShape(oldShape);
 		}
 		return;
 	}
@@ -207,10 +207,10 @@ public class Area {
 		} else {
 			double diffOfDiff = 0;
 			boolean sameRgba = sameRgba(newShape[0], oldShape[0]);
-			MutaPoint mp;
-			findMutaPointsOldNewShape(oldShape, newShape);
-			for(int j = 0; j < mutaPointsCount; j++){
-				mp = mutaPoints[j];
+			MutaPixel mp;
+			findMutaPixelsOldNewShape(oldShape, newShape);
+			for(int j = 0; j < mutaPixelsCount; j++){
+				mp = mutaPixels[j];
 				diffOfDiff += pixels[mp.index].prepareReplaceShape(oldShape, newShape, mp.intype, sameRgba);
 			}
 			return diffOfDiff;
@@ -228,9 +228,9 @@ public class Area {
 			removeShape(oldShape);
 			return;
 		} else {
-			MutaPoint mp;
-			for(int j = 0; j < mutaPointsCount; j++){
-				mp = mutaPoints[j];
+			MutaPixel mp;
+			for(int j = 0; j < mutaPixelsCount; j++){
+				mp = mutaPixels[j];
 				pixels[mp.index].replaceShape(oldShape, newShape, mp.intype);
 			}
 			return;
@@ -255,16 +255,12 @@ public class Area {
 		return newAddeDiff/(width * height);
 	}
 
-	private double penaltyShape(int nPoints) {
-		return penaltyRgb() + penalty(nPoints);
+	private double penaltyShape(int pointsCount) {
+		return penaltyRgb() + penalty(pointsCount);
 	}
 
 	private double penalty(int[][][] shapes) {
 		return penalty(recalcPointsCount(shapes));
-	}
-	
-	private double penaltyShape(int[][][] shapes) {
-		return  penaltyRgb() + penalty(shapes);
 	}
 	
 	private int recalcPointsCount(int[][][] shapes) {

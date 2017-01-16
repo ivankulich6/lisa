@@ -18,13 +18,6 @@ public class AreaPixel {
 		return Utils.getRgbInt(rgb);
 	}
 
-	// IDEA: This seems to be the bottleneck of the whole computation. If you
-	// can write this faster, it may improve the speed quite significantly.
-	
-	public void useNewRgb(){
-		System.arraycopy(newRgb, 0, rgb, 0, 3);
-	}
-	
 	public int prepareAddShape(int[][] shape){
 		int diffOld = diff();
 		int order = getShapeOrder(shape);
@@ -76,14 +69,18 @@ public class AreaPixel {
 		}
 	}
 	
+	public void useNewRgb(){
+		System.arraycopy(newRgb, 0, rgb, 0, 3);
+	}
+	
 	public void addShape(int[][] shape){
 		shapes.put(getShapeOrder(shape), shape);
-		System.arraycopy(newRgb, 0, rgb, 0, 3);
+		useNewRgb();
 	}
 	
 	public void removeShape(int[][] shape){
 		shapes.remove(getShapeOrder(shape));
-		System.arraycopy(newRgb, 0, rgb, 0, 3);
+		useNewRgb();
 	}
 	
 	public void replaceShape(int[][] oldShape, int[][] newShape, int intype){
@@ -99,12 +96,15 @@ public class AreaPixel {
 			}
 			shapes.put(orderNew, newShape);
 		}
-		System.arraycopy(newRgb, 0, rgb, 0, 3);
+		useNewRgb();
 	}
 	
 	public static int getShapeOrder(int[][] shape) {
 		return shape[0][4];
 	}
+
+	// IDEA: This seems to be the bottleneck of the whole computation. If you
+	// can write this faster, it may improve the speed quite significantly.
 	
 	public void rgbRegen(int[] rgb) {
 		float rgba[] = { 255, 255, 255, 255 };
@@ -129,7 +129,6 @@ public class AreaPixel {
 			}
 		} else {
 			for (int j = 0; j < 3; j++) {
-				// (srcRgba[j] * srcAlpha + dstRgba[j] * (1 - srcAlpha))/outAlpha
 				outRgba[j] = ((float) srcRgba[j] * srcRgba3 + dstRgba[j] * srcRgba3Compl) / outAlpha;
 			}
 
@@ -138,39 +137,6 @@ public class AreaPixel {
 		return;
 	}
 	
-	public void rgbRegenInt(int[] rgb) {
-		// TODO: work with floats, only when you combine all the shapes, convert
-		// to int.
-		int rgba[] = { 255, 255, 255, 255 };
-		for (Map.Entry<Integer, int[][]> entry : shapes.entrySet()) {
-			int[][] shape = entry.getValue();
-			convexCombineInt(shape[0], rgba, rgba);
-		}
-		Utils.colorNoAlpha(rgba, rgb);
-	}
-
-	public void rgbRegenInt() {
-		rgbRegenInt(this.rgb);
-	}
-	
-
-	public static void convexCombineInt(int srcRgba[], int dstRgba[], int outRgba[]) {
-		double outAlpha = (double) srcRgba[3] + (double) (dstRgba[3] * (255 - srcRgba[3])) / (double) 255;
-		if (outAlpha == 0) {
-			for (int j = 0; j < 3; j++) {
-				outRgba[j] = 0;
-			}
-		} else {
-			for (int j = 0; j < 3; j++) {
-				outRgba[j] = (int) Math.round(
-						((double) srcRgba[j] * (double) srcRgba[3] + (double) dstRgba[j] * (double) (255 - srcRgba[3]))
-								/ outAlpha);
-			}
-
-		}
-		outRgba[3] = (int) Math.round(outAlpha);
-		return;
-	}
 	
 	public static int diff(int rgb1[], int rgb2[]) {
 		return  Math.abs(rgb2[0] - rgb1[0]) + Math.abs(rgb2[1] - rgb1[1]) + Math.abs(rgb2[2] - rgb1[2]);
@@ -183,6 +149,5 @@ public class AreaPixel {
 	public int diff() {
 		return  diff(rgb, targetRgb);
 	}
-
 
 }
