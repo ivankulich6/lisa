@@ -1,4 +1,3 @@
-
 // TODO: Remove this class entirely. All we need is function:
 // int[] shapeRange(int[][][] shapes)
 // that accepts array of shapes and returs four numbers: xmin, ymin, xmax, ymax. 
@@ -12,13 +11,8 @@ public class ShapeRange {
 	public int yMin;
 	public int yMax;
 
-	// temporary for testing
-	public int nRunCount;
-	public double averageArea;
-
 	public ShapeRange() {
 		initialize();
-		nRunCount = 0;
 	}
 
 	public ShapeRange initialize() {
@@ -29,7 +23,7 @@ public class ShapeRange {
 
 	public ShapeRange add(int[][] shape) {
 		if (shape != null) {
-			for (int j = 1; j < shape.length; j++) {
+			for (int j = Area.SHAPE_NOPOINTS_COUNT; j < shape.length; j++) {
 				int xy[] = shape[j];
 				xMin = Math.min(xMin, xy[0]);
 				xMax = Math.max(xMax, xy[0]);
@@ -39,6 +33,5 @@ public class ShapeRange {
 		}
 		return this;
 	}
-
 
 }

@@ -8,6 +8,13 @@ import java.io.FileWriter;
 import java.util.Random;
 
 public class Area {
+	// shape color field index
+	public static final int SHAPE_COLOR_INDEX = 1;
+	// shape fields except color and points
+	public static final int SHAPE_NOGEOM_COUNT = SHAPE_COLOR_INDEX;
+	// shape fields except points
+	public static final int SHAPE_NOPOINTS_COUNT = SHAPE_COLOR_INDEX + 1;
+
 	public int width;
 	public int height;
 	private AreaPixel[] pixels;
@@ -16,30 +23,29 @@ public class Area {
 	int[][][] shapes;
 	int pointsCount;
 	private int gOrder;
-	//private  int[][] targetRgb;
 	Mutation mutation;
 	MutaPixel[] mutaPixels;
 	int mutaPixelsCount;
-	private double addeDiff;				//additive difference
+	private double addeDiff; // additive difference
 	private double newAddeDiff;
 	double diff;
 	private double newDiff;
 	double temp;
 	Random randg;
-	
-	String mutationType;	//for debug
-	
-	public class Mutation{
-		int [][] oldShape = null;
-		int [][] newShape = null;
-		int index = 0;				//mutated shape index
-		int shapesCount = 0;		//mutated shapes count
-		int pointsCount = 0;		//mutated shapes points count
+
+	String mutationType; // for debug
+
+	public class Mutation {
+		int[][] oldShape = null;
+		int[][] newShape = null;
+		int index = 0; // mutated shape index
+		int shapesCount = 0; // mutated shapes count
+		int pointsCount = 0; // mutated shapes points count
 	}
-	
-	public class MutaPixel{
+
+	public class MutaPixel {
 		int index = 0;
-		int intype = 0;		// 1=only in oldShape, 2 = only in newShape, 3 = in both
+		int intype = 0; // 1=only in oldShape, 2 = only in newShape, 3 = in both
 	}
 
 	Area(int width, int height) {
@@ -63,12 +69,12 @@ public class Area {
 
 		temp = 1;
 		randg = new Random(6543210);
-		//randg = new Random();
+		// randg = new Random();
 	}
-	
-	public void setTargetRgb(int[][] rgb){
+
+	public void setTargetRgb(int[][] rgb) {
 		assert pixels.length == rgb.length;
-		for(int j = 0; j < width * height; j++){
+		for (int j = 0; j < width * height; j++) {
 			pixels[j].targetRgb = rgb[j];
 		}
 		addeDiff = newAddeDiff = diff();
@@ -80,13 +86,13 @@ public class Area {
 		g.setColor(new Color(255, 255, 255));
 		g.fillRect(0, 0, width, height);
 		g.setColor(new Color(0, 0, 0, 255));
-		int npoints = shape.length - 1;
+		int npoints = shape.length - SHAPE_NOPOINTS_COUNT;
 		int xpoints[] = new int[npoints];
 		int ypoints[] = new int[npoints];
 		for (int i = 0; i < npoints; i++) {
 			// 0-th element of shape is color
-			xpoints[i] = shape[i + 1][0];
-			ypoints[i] = shape[i + 1][1];
+			xpoints[i] = shape[i + SHAPE_COLOR_INDEX + 1][0];
+			ypoints[i] = shape[i + SHAPE_COLOR_INDEX + 1][1];
 		}
 		g.fillPolygon(xpoints, ypoints, npoints);
 		return ((DataBufferInt) tempBufferedImage.getRaster().getDataBuffer()).getData();
@@ -100,8 +106,8 @@ public class Area {
 	private int getShapeOrder(int[][] shape) {
 		return AreaPixel.getShapeOrder(shape);
 	}
-	
-	public void findMutaPixelsNewShape(int[][] newShape){
+
+	public void findMutaPixelsNewShape(int[][] newShape) {
 		final int[] tmppixels = getShapePixels(newShape);
 		shapeRange.initialize().add(newShape);
 		mutaPixelsCount = 0;
@@ -118,8 +124,8 @@ public class Area {
 		}
 		return;
 	}
-		
-	public void findMutaPixelsOldShape(int[][] oldShape){
+
+	public void findMutaPixelsOldShape(int[][] oldShape) {
 		int order = getShapeOrder(oldShape);
 		shapeRange.initialize().add(oldShape);
 		mutaPixelsCount = 0;
@@ -137,8 +143,8 @@ public class Area {
 		}
 		return;
 	}
-		
-	public void findMutaPixelsOldNewShape(int[][] oldShape, int[][] newShape){
+
+	public void findMutaPixelsOldNewShape(int[][] oldShape, int[][] newShape) {
 		int order = getShapeOrder(oldShape);
 		int pixelInOld = 0;
 		int pixelInNew = 0;
@@ -153,7 +159,7 @@ public class Area {
 				p = pixels[ind];
 				pixelInOld = p.shapes.containsKey(order) ? 1 : 0;
 				pixelInNew = (tmppixels[ind] & 0xff) == 0 ? 1 : 0;
-				if(pixelInOld + pixelInNew > 0){
+				if (pixelInOld + pixelInNew > 0) {
 					MutaPixel mp = mutaPixels[mutaPixelsCount++];
 					mp.index = ind;
 					mp.intype = pixelInOld + 2 * pixelInNew;
@@ -163,18 +169,18 @@ public class Area {
 		}
 		return;
 	}
-	
+
 	public double prepareAddShape(int[][] newShape) {
 		double diffOfDiff = 0;
 		findMutaPixelsNewShape(newShape);
-		for(int j = 0; j < mutaPixelsCount; j++){
+		for (int j = 0; j < mutaPixelsCount; j++) {
 			diffOfDiff += pixels[mutaPixels[j].index].prepareAddShape(newShape);
 		}
 		return diffOfDiff;
 	}
 
 	public void addShape(int[][] newShape) {
-		for(int j = 0; j < mutaPixelsCount; j++){
+		for (int j = 0; j < mutaPixelsCount; j++) {
 			pixels[mutaPixels[j].index].addShape(newShape);
 		}
 		return;
@@ -183,14 +189,14 @@ public class Area {
 	public double prepareRemoveShape(int[][] oldShape) {
 		double diffOfDiff = 0;
 		findMutaPixelsOldShape(oldShape);
-		for(int j = 0; j < mutaPixelsCount; j++){
+		for (int j = 0; j < mutaPixelsCount; j++) {
 			diffOfDiff += pixels[mutaPixels[j].index].prepareRemoveShape(oldShape);
 		}
 		return diffOfDiff;
 	}
-	
+
 	public void removeShape(int[][] oldShape) {
-		for(int j = 0; j < mutaPixelsCount; j++){
+		for (int j = 0; j < mutaPixelsCount; j++) {
 			pixels[mutaPixels[j].index].removeShape(oldShape);
 		}
 		return;
@@ -206,17 +212,18 @@ public class Area {
 			return prepareRemoveShape(oldShape);
 		} else {
 			double diffOfDiff = 0;
-			boolean sameRgba = sameRgba(newShape[0], oldShape[0]);
+			boolean sameRgba = sameRgba(newShape[SHAPE_COLOR_INDEX], oldShape[SHAPE_COLOR_INDEX]);
 			MutaPixel mp;
 			findMutaPixelsOldNewShape(oldShape, newShape);
-			for(int j = 0; j < mutaPixelsCount; j++){
+			for (int j = 0; j < mutaPixelsCount; j++) {
 				mp = mutaPixels[j];
 				diffOfDiff += pixels[mp.index].prepareReplaceShape(oldShape, newShape, mp.intype, sameRgba);
 			}
 			return diffOfDiff;
-			
+
 		}
 	}
+
 	public void replaceShape(int[][] oldShape, int[][] newShape) {
 		if (oldShape == null && newShape == null) {
 			return;
@@ -229,30 +236,33 @@ public class Area {
 			return;
 		} else {
 			MutaPixel mp;
-			for(int j = 0; j < mutaPixelsCount; j++){
+			for (int j = 0; j < mutaPixelsCount; j++) {
 				mp = mutaPixels[j];
 				pixels[mp.index].replaceShape(oldShape, newShape, mp.intype);
 			}
 			return;
-			
+
 		}
 	}
-	
-	private boolean sameRgba(int[] rgba1, int[] rgba2){
-		if(rgba1[0] != rgba2[0]) return false;
-		if(rgba1[1] != rgba2[1]) return false;
-		if(rgba1[2] != rgba2[2]) return false;
-		if(rgba1[3] != rgba2[3]) return false;
+
+	private boolean sameRgba(int[] rgba1, int[] rgba2) {
+		if (rgba1[0] != rgba2[0])
+			return false;
+		if (rgba1[1] != rgba2[1])
+			return false;
+		if (rgba1[2] != rgba2[2])
+			return false;
+		if (rgba1[3] != rgba2[3])
+			return false;
 		return true;
 	}
 
-	
 	private double penalty(int pointsCount) {
 		return pointsCount * pointsCount / 10000000000.0;
 	}
 
 	private double penaltyRgb() {
-		return newAddeDiff/(width * height);
+		return newAddeDiff / (width * height);
 	}
 
 	private double penaltyShape(int pointsCount) {
@@ -262,24 +272,24 @@ public class Area {
 	private double penalty(int[][][] shapes) {
 		return penalty(recalcPointsCount(shapes));
 	}
-	
+
 	private int recalcPointsCount(int[][][] shapes) {
 		int pc = 0;
 		for (int[][] shape : shapes) {
-			pc += shape.length - 1;
+			pc += shape.length - SHAPE_NOPOINTS_COUNT;
 		}
+		assert pc == pointsCount;
 		return pc;
 	}
 
 	public double diffTest() {
-		return diff()/(width * height) + penalty(shapes);
-	}
-	
-	public double diffTest(double addeDiff) {
-		return addeDiff/(width * height) + penalty(shapes);
+		return diff() / (width * height) + penalty(shapes);
 	}
 
-	
+	public double diffTest(double addeDiff) {
+		return addeDiff / (width * height) + penalty(shapes);
+	}
+
 	private double diff() {
 		double diff = 0;
 		for (int j = 0; j < pixels.length; j++) {
@@ -287,7 +297,7 @@ public class Area {
 		}
 		return diff;
 	}
-	
+
 	private int[][] getRandomShape() {
 		int[] color = new int[5];
 		for (int i = 0; i < 3; i++) {
@@ -296,12 +306,12 @@ public class Area {
 		// color[3] = alpha, from 1 to 255; (0 is useless)
 		color[3] = randg.nextInt(255) + 1;
 		color[4] = gOrder++;
-		int[][] res = new int[4][];
-		res[0] = color;
+		int[][] res = new int[SHAPE_NOGEOM_COUNT + 4][];
+		res[SHAPE_COLOR_INDEX] = color;
 		for (int i = 0; i < 3; i++) {
-			res[i + 1] = new int[2];
-			res[i + 1][0] = randg.nextInt(width);
-			res[i + 1][1] = randg.nextInt(height);
+			res[SHAPE_NOPOINTS_COUNT + i] = new int[2];
+			res[SHAPE_NOPOINTS_COUNT + i][0] = randg.nextInt(width);
+			res[SHAPE_NOPOINTS_COUNT + i][1] = randg.nextInt(height);
 		}
 		return res;
 	}
@@ -309,41 +319,17 @@ public class Area {
 	private int[][] copy(int[][] shape) {
 		int[][] res = new int[shape.length][];
 		for (int i = 0; i < shape.length; i++) {
-			res[i] = new int[shape[i].length];
-			for (int j = 0; j < shape[i].length; j++) {
-				res[i][j] = shape[i][j];
+			if (shape[i] != null) {
+				res[i] = new int[shape[i].length];
+				for (int j = 0; j < shape[i].length; j++) {
+					res[i][j] = shape[i][j];
+				}
 			}
 		}
 		return res;
 	}
-	
-	int gCnt = 0;
-	private void getRandomMutation(){
-//		++gCnt;
-//		if(gCnt == 1){
-//			mutationType = "A";
-//			mutation.oldShape = null;
-//			mutation.newShape = new int[][]{ { 255, 0, 0, 100, 0 }, { 0, 0 }, { 100, 0 }, { 0, 100 } };
-//			mutation.index = shapes.length + 1;
-//			mutation.pointsCount = pointsCount + mutation.newShape.length - 1;
-//			return;
-//		}else if(gCnt == 2){
-//			mutationType = "A";
-//			mutation.oldShape = null;
-//			mutation.newShape = new int[][]{ { 0, 255, 0, 100, 1 },  { 50, 0 }, { 150, 0 }, { 150, 100 } };
-//			mutation.index = shapes.length + 1;
-//			mutation.pointsCount = pointsCount + mutation.newShape.length - 1;
-//			return;
-//		}else if(gCnt == 3){
-//			int index = 1;
-//			mutationType = "R";
-//			mutation.oldShape = shapes[index];
-//			mutation.newShape = null;
-//			mutation.index = index;
-//			mutation.pointsCount = pointsCount - (shapes[index].length - 1);
-//			return;
-//		}
-		
+
+	private void getRandomMutation() {
 		int opcode = randg.nextInt(100);
 		int n = shapes.length;
 		mutation.oldShape = null;
@@ -351,13 +337,13 @@ public class Area {
 		mutation.index = n;
 		mutation.shapesCount = n;
 		mutation.pointsCount = pointsCount;
-		if (opcode < 20) {	//add shape
+		if (opcode < 20) { // add shape
 			mutationType = "A";
 			mutation.newShape = getRandomShape();
 			mutation.index = n + 1;
-			mutation.pointsCount = pointsCount + mutation.newShape.length - 1;
+			mutation.pointsCount = pointsCount + mutation.newShape.length - SHAPE_NOPOINTS_COUNT;
 			return;
-		} else if (opcode < 40) {	//remove shape
+		} else if (opcode < 40) { // remove shape
 			mutationType = "R";
 			if (n == 0) {
 				mutationType = "0";
@@ -367,9 +353,9 @@ public class Area {
 			mutation.oldShape = shapes[index];
 			mutation.index = index;
 			mutation.shapesCount = n - 1;
-			mutation.pointsCount = pointsCount - (shapes[index].length - 1);
+			mutation.pointsCount = pointsCount - (shapes[index].length - SHAPE_NOPOINTS_COUNT);
 			return;
-		} else {	//modify shape
+		} else { // modify shape
 			mutationType = "M";
 			if (n == 0) {
 				mutationType = "0";
@@ -378,9 +364,9 @@ public class Area {
 			int index = randg.nextInt(n);
 			int newShape[][] = copy(shapes[index]);
 
-			int inner = randg.nextInt(newShape.length);
+			int inner = randg.nextInt(newShape.length - SHAPE_NOGEOM_COUNT) + SHAPE_COLOR_INDEX;
 			int inninner, randMax;
-			if (inner == 0) {
+			if (inner == SHAPE_COLOR_INDEX) {
 				randMax = 4;
 			} else {
 				randMax = newShape[inner].length;
@@ -390,7 +376,7 @@ public class Area {
 			int[] tmp = newShape[inner];
 			tmp[inninner] += move;
 			// if messing with color, trim outputs to 0, 255
-			if (inner == 0) {
+			if (inner == SHAPE_COLOR_INDEX) {
 				tmp[inninner] = Math.min(tmp[inninner], 255);
 				tmp[inninner] = Math.max(tmp[inninner], 0);
 				// trim x coordinate to 0, width
@@ -405,23 +391,23 @@ public class Area {
 			mutation.oldShape = shapes[index];
 			mutation.newShape = newShape;
 			mutation.index = index;
-			mutation.pointsCount =  pointsCount - shapes[index].length + newShape.length;
-			
+			mutation.pointsCount = pointsCount - shapes[index].length + newShape.length;
+
 			return;
 		}
-		
+
 	}
-	
+
 	private int[][][] alterShapes(int index, int[][] oldShape, int[][] newShape) {
 		int n = shapes.length;
-		if(oldShape == null && newShape == null){
+		if (oldShape == null && newShape == null) {
 			return shapes;
-		} else if (oldShape == null){
+		} else if (oldShape == null) {
 			int[][][] newShapes = new int[n + 1][][];
 			System.arraycopy(shapes, 0, newShapes, 0, n);
 			newShapes[n] = newShape;
 			return newShapes;
-		} else if (newShape == null){
+		} else if (newShape == null) {
 			int[][][] newShapes = new int[n - 1][][];
 			System.arraycopy(shapes, 0, newShapes, 0, index);
 			System.arraycopy(shapes, index + 1, newShapes, index, (n - 1 - index));
@@ -434,9 +420,7 @@ public class Area {
 		}
 	}
 
-
-	
-	public boolean doRandomChange(){
+	public boolean doRandomChange() {
 
 		// IDEA: Don't use alterShapes. To gain more speed, proceed as
 		// floows:
@@ -449,7 +433,16 @@ public class Area {
 		// |newColor - targetColor| - |oldColor - targetColor|
 		// summed over all affected pixels
 		// 4. if the diff-of-diff is > 0, revert the change
-		
+
+		// NOTE: The above idea is almost done, except:
+		// The array `shapes` is still not removed It is used by
+		// getRandomMutation,
+		// where the random access to currently used shapes is required.
+		// alterShapes is also used, but only in case when mutation is accepted.
+		// IDEA 2: Change method of random selection of existing shape in a way
+		// that it would select from area pixel shapes (instead of array
+		// `shapes`).
+		// That way, the array `shapes' could be really removed.
 
 		temp = Math.max(temp, Math.pow(10, -10));
 		getRandomMutation();
@@ -479,7 +472,7 @@ public class Area {
 		BufferedWriter writer = null;
 		try {
 			File outFile = new File(sFile);
-			StringBuilder sb = Utils.ShapesToSb(shapes);
+			StringBuilder sb = Utils.ShapesToSb(width, height, shapes);
 			System.out.println(outFile.getCanonicalPath());
 			writer = new BufferedWriter(new FileWriter(outFile));
 			writer.write(sb.toString());
@@ -494,12 +487,11 @@ public class Area {
 			}
 		}
 	}
-	
-	public void rgbRegen(){
+
+	public void rgbRegen() {
 		for (int j = 0; j < height * width; j++) {
 			pixels[j].rgbRegen();
 		}
 	}
-
 
 }

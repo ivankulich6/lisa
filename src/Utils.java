@@ -62,7 +62,7 @@ public class Utils {
 		}
 		System.out.println(s);
 	}
-	
+
 	public static String printShapes(int[][][] shapes) {
 		String s = "[";
 		for (int i = 0; i < shapes.length; i++) {
@@ -86,7 +86,7 @@ public class Utils {
 		String delimj, delimk;
 		sb.append("[");
 		delimj = "";
-		for (int j = 0; j < shape.length; j++, delimj = ", ") {
+		for (int j = Area.SHAPE_COLOR_INDEX; j < shape.length; j++, delimj = ", ") {
 			sb.append(delimj).append("[");
 			delimk = "";
 			for (int k = 0; k < shape[j].length; k++, delimk = ", ") {
@@ -98,14 +98,14 @@ public class Utils {
 		return sb;
 	}
 
-	public static StringBuilder ShapesToSb(int[][][] shapes) {
+	public static StringBuilder ShapesToSb(int width, int height, int[][][] shapes) {
 		StringBuilder sb = new StringBuilder();
+		sb.append(width).append(", ").append(height).append("\n");
 		sb.append(shapes.length).append("\n");
 		for (int i = 0; i < shapes.length; i++) {
 			sb.append(i).append(": ").append(ShapeToSb(shapes[i])).append("\n");
 		}
 		return sb;
 	}
-
 
 }
