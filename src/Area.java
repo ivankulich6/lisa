@@ -5,9 +5,13 @@ import java.awt.image.DataBufferInt;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
+import java.util.Map;
 import java.util.Random;
+import java.util.TreeMap;
 
 public class Area {
+	// maintain array shapes
+	public static final boolean useShapesArray = true;
 	// shape color field index
 	public static final int SHAPE_COLOR_INDEX = 1;
 	// shape fields except color and points
@@ -21,6 +25,7 @@ public class Area {
 	private ShapeRange shapeRange;
 	private BufferedImage tempBufferedImage;
 	int[][][] shapes;
+	int shapesCount;
 	int pointsCount;
 	private int gOrder;
 	Mutation mutation;
@@ -38,9 +43,12 @@ public class Area {
 	public class Mutation {
 		int[][] oldShape = null;
 		int[][] newShape = null;
-		int index = 0; // mutated shape index
-		int shapesCount = 0; // mutated shapes count
-		int pointsCount = 0; // mutated shapes points count
+		// mutated shape index
+		int index = 0;
+		// expected total shapes count in area after mutation
+		int shapesCount = 0;
+		// expected total shapes points count in area after mutation
+		int pointsCount = 0;
 	}
 
 	public class MutaPixel {
@@ -57,6 +65,7 @@ public class Area {
 			pixels[j] = new AreaPixel();
 		}
 		shapes = new int[0][][];
+		shapesCount = 0;
 		pointsCount = 0;
 		shapeRange = new ShapeRange();
 		tempBufferedImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
@@ -269,25 +278,12 @@ public class Area {
 		return penaltyRgb() + penalty(pointsCount);
 	}
 
-	private double penalty(int[][][] shapes) {
-		return penalty(recalcPointsCount(shapes));
-	}
-
-	private int recalcPointsCount(int[][][] shapes) {
-		int pc = 0;
-		for (int[][] shape : shapes) {
-			pc += shape.length - SHAPE_NOPOINTS_COUNT;
-		}
-		assert pc == pointsCount;
-		return pc;
-	}
-
 	public double diffTest() {
-		return diff() / (width * height) + penalty(shapes);
+		return diff() / (width * height) + penalty(pointsCount);
 	}
 
 	public double diffTest(double addeDiff) {
-		return addeDiff / (width * height) + penalty(shapes);
+		return addeDiff / (width * height) + penalty(pointsCount);
 	}
 
 	private double diff() {
@@ -329,41 +325,80 @@ public class Area {
 		return res;
 	}
 
+	private int[][] selectPixelsRandomShape() {
+		int index = randg.nextInt(width * height);
+		int nPixShapes = pixels[index].shapes.size();
+		if (nPixShapes == 0) {
+			int index0 = index;
+			while (nPixShapes == 0) {
+				++index;
+				if (index >= width * height) {
+					index = 0;
+				}
+				if (index == index0) {
+					assert shapesCount == 0;
+					mutationType = "0";
+					return null;
+				}
+				nPixShapes = pixels[index].shapes.size();
+			}
+		}
+		int index2 = randg.nextInt(nPixShapes);
+		int j = 0;
+		for (Map.Entry<Integer, int[][]> entry : pixels[index].shapes.entrySet()) {
+			if (j++ >= index2) {
+				return entry.getValue();
+			}
+		}
+		return null;
+	}
+
 	private void getRandomMutation() {
 		int opcode = randg.nextInt(100);
-		int n = shapes.length;
 		mutation.oldShape = null;
 		mutation.newShape = null;
-		mutation.index = n;
-		mutation.shapesCount = n;
+		mutation.shapesCount = shapesCount;
 		mutation.pointsCount = pointsCount;
 		if (opcode < 20) { // add shape
 			mutationType = "A";
 			mutation.newShape = getRandomShape();
-			mutation.index = n + 1;
+			mutation.shapesCount = shapesCount + 1;
 			mutation.pointsCount = pointsCount + mutation.newShape.length - SHAPE_NOPOINTS_COUNT;
 			return;
 		} else if (opcode < 40) { // remove shape
-			mutationType = "R";
-			if (n == 0) {
+			if (shapesCount == 0) {
 				mutationType = "0";
 				return;
 			}
-			int index = randg.nextInt(n);
-			mutation.oldShape = shapes[index];
-			mutation.index = index;
-			mutation.shapesCount = n - 1;
-			mutation.pointsCount = pointsCount - (shapes[index].length - SHAPE_NOPOINTS_COUNT);
+			mutationType = "R";
+			if (useShapesArray) {
+				int index = randg.nextInt(shapesCount);
+				mutation.oldShape = shapes[index];
+				mutation.index = index;
+			} else {
+				mutation.oldShape = selectPixelsRandomShape();
+				mutation.index = -1;
+			}
+			mutation.shapesCount = shapesCount - 1;
+			mutation.pointsCount = pointsCount - (mutation.oldShape.length - SHAPE_NOPOINTS_COUNT);
 			return;
 		} else { // modify shape
 			mutationType = "M";
-			if (n == 0) {
+			if (shapesCount == 0) {
 				mutationType = "0";
 				return;
 			}
-			int index = randg.nextInt(n);
-			int newShape[][] = copy(shapes[index]);
-
+			int oldShape[][];
+			int newShape[][];
+			int index;
+			if (useShapesArray) {
+				index = randg.nextInt(shapesCount);
+				oldShape = shapes[index];
+			} else {
+				index = -1;
+				oldShape = selectPixelsRandomShape();
+			}
+			newShape = copy(oldShape);
 			int inner = randg.nextInt(newShape.length - SHAPE_NOGEOM_COUNT) + SHAPE_COLOR_INDEX;
 			int inninner, randMax;
 			if (inner == SHAPE_COLOR_INDEX) {
@@ -388,11 +423,10 @@ public class Area {
 				tmp[inninner] = Math.min(tmp[inninner], height);
 				tmp[inninner] = Math.max(tmp[inninner], 0);
 			}
-			mutation.oldShape = shapes[index];
+			mutation.oldShape = oldShape;
 			mutation.newShape = newShape;
 			mutation.index = index;
-			mutation.pointsCount = pointsCount - shapes[index].length + newShape.length;
-
+			mutation.pointsCount = pointsCount - oldShape.length + newShape.length;
 			return;
 		}
 
@@ -434,15 +468,13 @@ public class Area {
 		// summed over all affected pixels
 		// 4. if the diff-of-diff is > 0, revert the change
 
-		// NOTE: The above idea is almost done, except:
-		// The array `shapes` is still not removed It is used by
-		// getRandomMutation,
-		// where the random access to currently used shapes is required.
-		// alterShapes is also used, but only in case when mutation is accepted.
-		// IDEA 2: Change method of random selection of existing shape in a way
-		// that it would select from area pixel shapes (instead of array
-		// `shapes`).
-		// That way, the array `shapes' could be really removed.
+		// NOTE: useShapesArray = true ... shapes is updated after mutation
+		// is accepted and used for random selection of shape.
+		// useShapesArray = false ... maintenance of shapes is removed
+		// completely, random selection of shape is performed on shapes stored
+		// in pixels. Mutation speed in this case is less (about 1.7 times),
+		// probably because shape selection from trees in pixels is more
+		// expensive than simple selection from array.
 
 		temp = Math.max(temp, Math.pow(10, -10));
 		getRandomMutation();
@@ -457,7 +489,11 @@ public class Area {
 				temp *= 0.5;
 			}
 			replaceShape(mutation.oldShape, mutation.newShape);
-			shapes = alterShapes(mutation.index, mutation.oldShape, mutation.newShape);
+			if (useShapesArray) {
+				shapes = alterShapes(mutation.index, mutation.oldShape, mutation.newShape);
+				assert shapes.length == mutation.shapesCount;
+			}
+			shapesCount = mutation.shapesCount;
 			pointsCount = mutation.pointsCount;
 			addeDiff = newAddeDiff;
 			diff = newDiff;
@@ -466,6 +502,28 @@ public class Area {
 			temp *= 1.002;
 			return false;
 		}
+	}
+
+	public int[][][] extractShapes() {
+		TreeMap<Integer, int[][]> exShapes = new TreeMap<Integer, int[][]>();
+		for (int j = 0; j < height * width; j++) {
+			exShapes.putAll(pixels[j].shapes);
+		}
+		int[][][] outShapes = new int[exShapes.size()][][];
+		int j = 0;
+		for (Map.Entry<Integer, int[][]> entry : exShapes.entrySet()) {
+			outShapes[j++] = entry.getValue();
+		}
+		return outShapes;
+	}
+
+	public int recalcPointsCount(int[][][] shapes) {
+		int pc = 0;
+		for (int[][] shape : shapes) {
+			pc += shape.length - SHAPE_NOPOINTS_COUNT;
+		}
+		assert pc == pointsCount;
+		return pc;
 	}
 
 	public void saveShapes(String sFile) {

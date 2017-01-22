@@ -111,9 +111,6 @@ public class Main {
 
 		while (true) {
 			cnt++;
-			if (cnt == 3047) {
-				System.out.println("here");	
-			}
 
 			boolean success = area.doRandomChange();
 			// System.out.print(area.mutationType);
@@ -126,18 +123,13 @@ public class Main {
 				}
 			}
 			if (cnt % 100 == 0) {
-				shapesImg = drawShapes(area.shapes);
-				// drawing.draw(shapesImg);
-				double dt2 = area.diffTest(addeDiff(shapesImg, target));
 				System.out.println("");
-				System.out.println("Diff=" + area.diff + ", Diff2=" + dt2 + ", cnt=" + cnt + ", polygons="
-						+ area.shapes.length + ", temp=" + area.temp);
+				System.out.println("Diff=" + area.diff + ", cnt=" + cnt + ", polygons=" + area.shapesCount + ", temp="
+						+ area.temp);
 				// incrementally computed difference should fit whole area
 				// recomputed difference
 				assert area.diff == area.diffTest();
 				// Diff: incremental diff, own merging of transparent colors,
-				// Diff2: regenerated whole area diff, merging of transparent
-				// colors by imported Graphics (fillPolygon)
 
 				// if (cnt >= 5000) {
 				// gWindowClosing = true;
@@ -147,6 +139,23 @@ public class Main {
 				long stopTime = System.currentTimeMillis();
 				long elapsedTime = stopTime - startTime;
 				System.out.println("elapsedTime = " + elapsedTime + " milliseconds");
+				int[][][] exShapes = area.extractShapes();
+				assert exShapes.length == area.shapesCount;
+				assert area.recalcPointsCount(exShapes) == area.pointsCount;
+				if (!Area.useShapesArray) {
+					area.shapes = exShapes;
+				}
+				System.out.println("");
+				System.out.println("Diff=" + area.diff + ", cnt=" + cnt + ", polygons=" + area.shapesCount + ", temp="
+						+ area.temp);
+				assert area.diff == area.diffTest();
+
+				shapesImg = drawShapes(area.shapes);
+				// drawing.draw(shapesImg);
+				double dt2 = area.diffTest(addeDiff(shapesImg, target));
+				System.out.println("Diff2=" + dt2);
+				// Diff2: regenerated whole area diff, merging of transparent
+				// colors by imported Graphics (fillPolygon)
 				area.saveShapes("testdata/shapes01.txt");
 				System.exit(0);
 				break;
