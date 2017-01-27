@@ -16,6 +16,14 @@ public class Utils {
 		return;
 	}
 
+	public static void colorNoAlpha(float rgba[], int rgb[]) {
+		float a = rgba[3] / 255;
+		for (int j = 0; j < 3; j++) {
+			rgb[j] = Math.round(a * rgba[j] + (1 - a) * 255);
+		}
+		return;
+	}
+
 	public static void getPixel(int pixel, int[] res) {
 		int c1 = (int) pixel & 0xff; // b
 		int c2 = (int) pixel >> 8 & 0xff; // g
@@ -47,12 +55,57 @@ public class Utils {
 		return ((rgb[0] & 0x0ff) << 16) | ((rgb[1] & 0x0ff) << 8) | (rgb[2] & 0x0ff) | 255 << 24;
 	}
 
-	private void printArr(int[] arr) {
+	public static void printArr(int[] arr) {
 		String s = "";
 		for (int elem : arr) {
 			s += elem + ", ";
 		}
 		System.out.println(s);
+	}
+
+	public static String printShapes(int[][][] shapes) {
+		String s = "[";
+		for (int i = 0; i < shapes.length; i++) {
+			s += "[";
+			// for (int j = 0; j < shapes[i].length; j++) {
+			for (int j = 0; j < 1; j++) {
+				s += "[";
+				for (int k = 0; k < shapes[i][j].length; k++) {
+					s += shapes[i][j][k] + ", ";
+				}
+				s += "], ";
+			}
+			s += "], ";
+		}
+		s += "]";
+		return s;
+	}
+
+	private static StringBuilder ShapeToSb(int[][] shape) {
+		StringBuilder sb = new StringBuilder();
+		String delimj, delimk;
+		sb.append("[");
+		delimj = "";
+		for (int j = Area.SHAPE_COLOR_INDEX; j < shape.length; j++, delimj = ", ") {
+			sb.append(delimj).append("[");
+			delimk = "";
+			for (int k = 0; k < shape[j].length; k++, delimk = ", ") {
+				sb.append(delimk).append(shape[j][k]);
+			}
+			sb.append("]");
+		}
+		sb.append("]");
+		return sb;
+	}
+
+	public static StringBuilder ShapesToSb(int width, int height, int[][][] shapes) {
+		StringBuilder sb = new StringBuilder();
+		sb.append(width).append(", ").append(height).append("\n");
+		sb.append(shapes.length).append("\n");
+		for (int i = 0; i < shapes.length; i++) {
+			sb.append(i).append(": ").append(ShapeToSb(shapes[i])).append("\n");
+		}
+		return sb;
 	}
 
 }
