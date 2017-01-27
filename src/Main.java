@@ -113,7 +113,7 @@ public class Main {
 			cnt++;
 
 			boolean success = area.doRandomChange();
-			// System.out.print(area.mutationType);
+			//System.out.print(area.mutationType);
 			if (success) {
 				System.out.print("+");
 				cntSuccess++;

@@ -12,6 +12,8 @@ import java.util.TreeMap;
 public class Area {
 	// maintain array shapes
 	public static final boolean useShapesArray = true;
+	// shape pixels field index
+	public static final int SHAPE_PIXELS_INDEX = 0;
 	// shape color field index
 	public static final int SHAPE_COLOR_INDEX = 1;
 	// shape fields except color and points
@@ -30,6 +32,7 @@ public class Area {
 	private int gOrder;
 	Mutation mutation;
 	MutaPixel[] mutaPixels;
+	int[] mutaPixelsWork;
 	int mutaPixelsCount;
 	private double addeDiff; // additive difference
 	private double newAddeDiff;
@@ -43,7 +46,7 @@ public class Area {
 	public class Mutation {
 		int[][] oldShape = null;
 		int[][] newShape = null;
-		// mutated shape index
+		// mutated shape index in shapes array
 		int index = 0;
 		// expected total shapes count in area after mutation
 		int shapesCount = 0;
@@ -54,6 +57,13 @@ public class Area {
 	public class MutaPixel {
 		int index = 0;
 		int intype = 0; // 1=only in oldShape, 2 = only in newShape, 3 = in both
+	}
+
+	public class ShapeRange {
+		public int xMin;
+		public int xMax;
+		public int yMin;
+		public int yMax;
 	}
 
 	Area(int width, int height) {
@@ -67,7 +77,6 @@ public class Area {
 		shapes = new int[0][][];
 		shapesCount = 0;
 		pointsCount = 0;
-		shapeRange = new ShapeRange();
 		tempBufferedImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
 		gOrder = 0;
 		mutation = new Mutation();
@@ -75,7 +84,7 @@ public class Area {
 		for (int j = 0; j < height * width; j++) {
 			mutaPixels[j] = new MutaPixel();
 		}
-
+		mutaPixelsWork = new int[2 * width * height];
 		temp = 1;
 		randg = new Random(6543210);
 		// randg = new Random();
@@ -116,67 +125,163 @@ public class Area {
 		return AreaPixel.getShapeOrder(shape);
 	}
 
-	public void findMutaPixelsNewShape(int[][] newShape) {
-		final int[] tmppixels = getShapePixels(newShape);
-		shapeRange.initialize().add(newShape);
-		mutaPixelsCount = 0;
-		for (int jh = shapeRange.yMin; jh < shapeRange.yMax; jh++) {
-			int jhw = jh * width;
-			for (int jw = shapeRange.xMin; jw < shapeRange.xMax; jw++) {
-				int ind = jhw + jw;
-				if ((tmppixels[ind] & 0xff) == 0) {
-					MutaPixel mp = mutaPixels[mutaPixelsCount++];
-					mp.index = ind;
-					mp.intype = 2;
+	// returns next pixel index for shape specified by pixelColors
+	// pixelsColors = area array of colors, black in shape, white outside of
+	// shape
+	// iter = [height index, width index, area index]
+	private int getNextIndexInNew(int[] iter, int[] pixelsColors) {
+		while (true) {
+			if (++iter[1] < shapeRange.xMax) {
+				if ((pixelsColors[++iter[2]] & 0xff) == 0) {
+					return iter[2];
 				}
+			} else {
+				if (++iter[0] >= shapeRange.yMax) {
+					return Integer.MAX_VALUE;
+				}
+				iter[1] = shapeRange.xMin - 1;
+				iter[2] += width + shapeRange.xMin - shapeRange.xMax;
 			}
+		}
+	}
+
+	private int[] initIndexInNew() {
+		int[] iter = { shapeRange.yMin, shapeRange.xMin - 1, width * shapeRange.yMin + shapeRange.xMin - 1 };
+		return iter;
+	}
+
+	// returns next pixel index stored in compressed array pixinds
+	// iter = [pos. in pixinds, pos. in sequence, length of sequence, current
+	// index]
+	private int getNextIndexInOld(int[] iter, int[] pixinds) {
+		if (++iter[1] < iter[2]) {
+			return ++iter[3];
+		} else {
+			if (++iter[0] >= pixinds.length) {
+				return Integer.MAX_VALUE;
+			}
+			iter[1] = 0;
+			iter[3] = pixinds[iter[0]];
+			iter[2] = pixinds[++iter[0]];
+			return iter[3];
+		}
+	}
+
+	private int[] initIndexInOld() {
+		int[] iter = { -1, 0, 0, 0 };
+		return iter;
+	}
+
+	public void findMutaPixelsNewShape(int[][] newShape) {
+		final int[] pixelcolors = getShapePixels(newShape);
+		shapeRange = getShapeRange(newShape);
+		mutaPixelsCount = 0;
+		int[] iterNew = initIndexInNew();
+		int index;
+		while (true) {
+			index = getNextIndexInNew(iterNew, pixelcolors);
+			if (index == Integer.MAX_VALUE) {
+				break;
+			}
+			MutaPixel mp = mutaPixels[mutaPixelsCount++];
+			mp.index = index;
+			mp.intype = 2;
 		}
 		return;
 	}
 
 	public void findMutaPixelsOldShape(int[][] oldShape) {
-		int order = getShapeOrder(oldShape);
-		shapeRange.initialize().add(oldShape);
 		mutaPixelsCount = 0;
-		for (int jh = shapeRange.yMin; jh < shapeRange.yMax; jh++) {
-			int jhw = jh * width;
-			for (int jw = shapeRange.xMin; jw < shapeRange.xMax; jw++) {
-				int ind = jhw + jw;
-				AreaPixel p = pixels[ind];
-				if (p.shapes.containsKey(order)) {
-					MutaPixel mp = mutaPixels[mutaPixelsCount++];
-					mp.index = ind;
-					mp.intype = 1;
-				}
+		int[] pixinds = oldShape[SHAPE_PIXELS_INDEX];
+		int[] iterOld = initIndexInOld();
+		int index;
+		while (true) {
+			index = getNextIndexInOld(iterOld, pixinds);
+			if (index == Integer.MAX_VALUE) {
+				break;
 			}
+			MutaPixel mp = mutaPixels[mutaPixelsCount++];
+			mp.index = index;
+			mp.intype = 1;
 		}
 		return;
 	}
 
 	public void findMutaPixelsOldNewShape(int[][] oldShape, int[][] newShape) {
-		int order = getShapeOrder(oldShape);
-		int pixelInOld = 0;
-		int pixelInNew = 0;
-		final int[] tmppixels = getShapePixels(newShape);
-		AreaPixel p;
-		shapeRange.initialize().add(oldShape).add(newShape);
 		mutaPixelsCount = 0;
-		for (int jh = shapeRange.yMin; jh < shapeRange.yMax; jh++) {
-			int jhw = jh * width;
-			for (int jw = shapeRange.xMin; jw < shapeRange.xMax; jw++) {
-				int ind = jhw + jw;
-				p = pixels[ind];
-				pixelInOld = p.shapes.containsKey(order) ? 1 : 0;
-				pixelInNew = (tmppixels[ind] & 0xff) == 0 ? 1 : 0;
-				if (pixelInOld + pixelInNew > 0) {
-					MutaPixel mp = mutaPixels[mutaPixelsCount++];
-					mp.index = ind;
-					mp.intype = pixelInOld + 2 * pixelInNew;
-				}
-			}
+		int[] pixinds = oldShape[SHAPE_PIXELS_INDEX];
+		int[] iterOld = initIndexInOld();
+		int indexOld = -1;
+		final int[] pixelcolors = getShapePixels(newShape);
+		shapeRange = getShapeRange(newShape);
+		int[] iterNew = initIndexInNew();
+		int indexNew = -1;
+		MutaPixel mp;
 
+		while (true) {
+			if (indexNew < indexOld) {
+				indexNew = getNextIndexInNew(iterNew, pixelcolors);
+			} else if (indexOld < indexNew) {
+				indexOld = getNextIndexInOld(iterOld, pixinds);
+			} else if (indexNew != Integer.MAX_VALUE) {
+				indexNew = getNextIndexInNew(iterNew, pixelcolors);
+				indexOld = getNextIndexInOld(iterOld, pixinds);
+			} else {
+				break;
+			}
+			if (indexOld < indexNew) {
+				mp = mutaPixels[mutaPixelsCount++];
+				mp.index = indexOld;
+				mp.intype = 1;
+			} else if (indexNew < indexOld) {
+				mp = mutaPixels[mutaPixelsCount++];
+				mp.index = indexNew;
+				mp.intype = 2;
+			} else if (indexNew != Integer.MAX_VALUE) {
+				mp = mutaPixels[mutaPixelsCount++];
+				mp.index = indexNew;
+				mp.intype = 3;
+			} else {
+				break;
+			}
 		}
 		return;
+	}
+
+	/*
+	 * sequence of pixel indices is stored in compressed form [ind1, cnt1, ind2,
+	 * cnt2,...] where cnti is number of consecutive indices {indi, indi+1,...}
+	 */
+	public void saveShapePixels(int[][] shape) {
+		int currIndex = -1;
+		int currPos = -1;
+		int currCount = 0;
+		int index;
+		int index0 = -1;
+		for (int j = 0; j < mutaPixelsCount; j++, currIndex++) {
+			if (mutaPixels[j].intype > 1) {
+				index = mutaPixels[j].index;
+				if (index != currIndex) {
+					if (currPos >= 0) {
+						mutaPixelsWork[currPos++] = index0;
+						mutaPixelsWork[currPos++] = currCount;
+					} else {
+						currPos = 0;
+					}
+					currIndex = index;
+					index0 = index;
+					currCount = 1;
+				} else {
+					++currCount;
+				}
+			}
+		}
+		if (currPos >= 0) {
+			mutaPixelsWork[currPos++] = index0;
+			mutaPixelsWork[currPos++] = currCount;
+			shape[SHAPE_PIXELS_INDEX] = new int[currPos];
+			System.arraycopy(mutaPixelsWork, 0, shape[SHAPE_PIXELS_INDEX], 0, currPos);
+		}
 	}
 
 	public double prepareAddShape(int[][] newShape) {
@@ -239,6 +344,7 @@ public class Area {
 		}
 		if (oldShape == null) {
 			addShape(newShape);
+			saveShapePixels(newShape);
 			return;
 		} else if (newShape == null) {
 			removeShape(oldShape);
@@ -249,6 +355,7 @@ public class Area {
 				mp = mutaPixels[j];
 				pixels[mp.index].replaceShape(oldShape, newShape, mp.intype);
 			}
+			saveShapePixels(newShape);
 			return;
 
 		}
@@ -317,9 +424,7 @@ public class Area {
 		for (int i = 0; i < shape.length; i++) {
 			if (shape[i] != null) {
 				res[i] = new int[shape[i].length];
-				for (int j = 0; j < shape[i].length; j++) {
-					res[i][j] = shape[i][j];
-				}
+				System.arraycopy(shape[i], 0, res[i], 0, shape[i].length);
 			}
 		}
 		return res;
@@ -360,17 +465,16 @@ public class Area {
 		mutation.shapesCount = shapesCount;
 		mutation.pointsCount = pointsCount;
 		if (opcode < 20) { // add shape
-			mutationType = "A";
 			mutation.newShape = getRandomShape();
 			mutation.shapesCount = shapesCount + 1;
 			mutation.pointsCount = pointsCount + mutation.newShape.length - SHAPE_NOPOINTS_COUNT;
+			mutationType = "A(" + getShapeOrder(mutation.newShape) + ")";
 			return;
 		} else if (opcode < 40) { // remove shape
 			if (shapesCount == 0) {
 				mutationType = "0";
 				return;
 			}
-			mutationType = "R";
 			if (useShapesArray) {
 				int index = randg.nextInt(shapesCount);
 				mutation.oldShape = shapes[index];
@@ -381,9 +485,9 @@ public class Area {
 			}
 			mutation.shapesCount = shapesCount - 1;
 			mutation.pointsCount = pointsCount - (mutation.oldShape.length - SHAPE_NOPOINTS_COUNT);
+			mutationType = "R(" + getShapeOrder(mutation.oldShape) + ")";
 			return;
 		} else { // modify shape
-			mutationType = "M";
 			if (shapesCount == 0) {
 				mutationType = "0";
 				return;
@@ -427,6 +531,7 @@ public class Area {
 			mutation.newShape = newShape;
 			mutation.index = index;
 			mutation.pointsCount = pointsCount - oldShape.length + newShape.length;
+			mutationType = "M(" + getShapeOrder(mutation.oldShape) + ")";
 			return;
 		}
 
@@ -456,23 +561,11 @@ public class Area {
 
 	public boolean doRandomChange() {
 
-		// IDEA: Don't use alterShapes. To gain more speed, proceed as
-		// floows:
-		// 1. generate the change you want to do
-		// 2. apply the change directly to the Area (note that there is no
-		// need for structures such as `shapes` here - Area already contains
-		// all information necessary to fully represent a picture.)
-		// 3. when applying the change to the Area, calculate also the
-		// diff-of-diff for this change - this is simply
-		// |newColor - targetColor| - |oldColor - targetColor|
-		// summed over all affected pixels
-		// 4. if the diff-of-diff is > 0, revert the change
-
 		// NOTE: useShapesArray = true ... shapes is updated after mutation
 		// is accepted and used for random selection of shape.
 		// useShapesArray = false ... maintenance of shapes is removed
 		// completely, random selection of shape is performed on shapes stored
-		// in pixels. Mutation speed in this case is less (about 1.7 times),
+		// in pixels. Execution time in this case is longer (about 1.7 times),
 		// probably because shape selection from trees in pixels is more
 		// expensive than simple selection from array.
 
@@ -550,6 +643,22 @@ public class Area {
 		for (int j = 0; j < height * width; j++) {
 			pixels[j].rgbRegen();
 		}
+	}
+
+	public ShapeRange getShapeRange(int[][] shape) {
+		ShapeRange range = new ShapeRange();
+		range.xMin = range.yMin = Integer.MAX_VALUE;
+		range.xMax = range.yMax = Integer.MIN_VALUE;
+		if (shape != null) {
+			for (int j = Area.SHAPE_NOPOINTS_COUNT; j < shape.length; j++) {
+				int xy[] = shape[j];
+				range.xMin = Math.min(range.xMin, xy[0]);
+				range.xMax = Math.max(range.xMax, xy[0]);
+				range.yMin = Math.min(range.yMin, xy[1]);
+				range.yMax = Math.max(range.yMax, xy[1]);
+			}
+		}
+		return range;
 	}
 
 }
