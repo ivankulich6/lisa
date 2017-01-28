@@ -34,6 +34,11 @@ public class Area {
 	MutaPixel[] mutaPixels;
 	int[] mutaPixelsWork;
 	int mutaPixelsCount;
+	// TODO you probably don't need both addeDiff and newAddeDiff, same is
+	// probably true for
+	// diff vs newDiff. There should be one version of each quantity, the other
+	// can be
+	// just temporaty local variable when needed
 	private double addeDiff; // additive difference
 	private double newAddeDiff;
 	double diff;
