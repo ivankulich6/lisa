@@ -1,15 +1,20 @@
-import java.util.AbstractMap;
 import java.util.Comparator;
 import java.util.ConcurrentModificationException;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
+interface Reducer<V> {
+	V reduce(V reduced, V value);
+}
+
 public class RbTree<K, V> {
 
 	private final Comparator<? super K> comparator;
 
-	private transient Entry<K, V> root = null;
+	final Reducer<V> reducer;
+
+	private transient Entry root = null;
 
 	/**
 	 * The number of entries in the tree
@@ -23,10 +28,12 @@ public class RbTree<K, V> {
 
 	public RbTree() {
 		comparator = null;
+		reducer = null;
 	}
 
-	public RbTree(Comparator<? super K> comparator) {
+	public RbTree(Comparator<? super K> comparator, Reducer<V> reducer) {
 		this.comparator = comparator;
+		this.reducer = reducer;
 	}
 
 	// Query Operations
@@ -44,15 +51,8 @@ public class RbTree<K, V> {
 		return getEntry(key) != null;
 	}
 
-	public boolean containsValue(Object value) {
-		for (Entry<K, V> e = getFirstEntry(); e != null; e = successor(e))
-			if (valEquals(value, e.value))
-				return true;
-		return false;
-	}
-
 	public V get(Object key) {
-		Entry<K, V> p = getEntry(key);
+		Entry p = getEntry(key);
 		return (p == null ? null : p.value);
 	}
 
@@ -68,14 +68,14 @@ public class RbTree<K, V> {
 		return key(getLastEntry());
 	}
 
-	final Entry<K, V> getEntry(Object key) {
+	final Entry getEntry(Object key) {
 		// Offload comparator-based version for sake of performance
 		if (comparator != null)
 			return getEntryUsingComparator(key);
 		if (key == null)
 			throw new NullPointerException();
 		Comparable<? super K> k = (Comparable<? super K>) key;
-		Entry<K, V> p = root;
+		Entry p = root;
 		while (p != null) {
 			int cmp = k.compareTo(p.key);
 			if (cmp < 0)
@@ -93,11 +93,11 @@ public class RbTree<K, V> {
 	 * performance. (This is not worth doing for most methods, that are less
 	 * dependent on comparator performance, but is worthwhile here.)
 	 */
-	final Entry<K, V> getEntryUsingComparator(Object key) {
+	final Entry getEntryUsingComparator(Object key) {
 		K k = (K) key;
 		Comparator<? super K> cpr = comparator;
 		if (cpr != null) {
-			Entry<K, V> p = root;
+			Entry p = root;
 			while (p != null) {
 				int cmp = cpr.compare(k, p.key);
 				if (cmp < 0)
@@ -117,8 +117,8 @@ public class RbTree<K, V> {
 	 * key; if no such entry exists (i.e., the greatest key in the Tree is less
 	 * than the specified key), returns <tt>null</tt>.
 	 */
-	final Entry<K, V> getCeilingEntry(K key) {
-		Entry<K, V> p = root;
+	final Entry getCeilingEntry(K key) {
+		Entry p = root;
 		while (p != null) {
 			int cmp = compare(key, p.key);
 			if (cmp < 0) {
@@ -130,8 +130,8 @@ public class RbTree<K, V> {
 				if (p.right != null) {
 					p = p.right;
 				} else {
-					Entry<K, V> parent = p.parent;
-					Entry<K, V> ch = p;
+					Entry parent = p.parent;
+					Entry ch = p;
 					while (parent != null && ch == parent.right) {
 						ch = parent;
 						parent = parent.parent;
@@ -149,8 +149,8 @@ public class RbTree<K, V> {
 	 * exists, returns the entry for the greatest key less than the specified
 	 * key; if no such entry exists, returns <tt>null</tt>.
 	 */
-	final Entry<K, V> getFloorEntry(K key) {
-		Entry<K, V> p = root;
+	final Entry getFloorEntry(K key) {
+		Entry p = root;
 		while (p != null) {
 			int cmp = compare(key, p.key);
 			if (cmp > 0) {
@@ -162,8 +162,8 @@ public class RbTree<K, V> {
 				if (p.left != null) {
 					p = p.left;
 				} else {
-					Entry<K, V> parent = p.parent;
-					Entry<K, V> ch = p;
+					Entry parent = p.parent;
+					Entry ch = p;
 					while (parent != null && ch == parent.left) {
 						ch = parent;
 						parent = parent.parent;
@@ -182,8 +182,8 @@ public class RbTree<K, V> {
 	 * such entry exists, returns the entry for the least key greater than the
 	 * specified key; if no such entry exists returns <tt>null</tt>.
 	 */
-	final Entry<K, V> getHigherEntry(K key) {
-		Entry<K, V> p = root;
+	final Entry getHigherEntry(K key) {
+		Entry p = root;
 		while (p != null) {
 			int cmp = compare(key, p.key);
 			if (cmp < 0) {
@@ -195,8 +195,8 @@ public class RbTree<K, V> {
 				if (p.right != null) {
 					p = p.right;
 				} else {
-					Entry<K, V> parent = p.parent;
-					Entry<K, V> ch = p;
+					Entry parent = p.parent;
+					Entry ch = p;
 					while (parent != null && ch == parent.right) {
 						ch = parent;
 						parent = parent.parent;
@@ -213,8 +213,8 @@ public class RbTree<K, V> {
 	 * such entry exists (i.e., the least key in the Tree is greater than the
 	 * specified key), returns <tt>null</tt>.
 	 */
-	final Entry<K, V> getLowerEntry(K key) {
-		Entry<K, V> p = root;
+	final Entry getLowerEntry(K key) {
+		Entry p = root;
 		while (p != null) {
 			int cmp = compare(key, p.key);
 			if (cmp > 0) {
@@ -226,8 +226,8 @@ public class RbTree<K, V> {
 				if (p.left != null) {
 					p = p.left;
 				} else {
-					Entry<K, V> parent = p.parent;
-					Entry<K, V> ch = p;
+					Entry parent = p.parent;
+					Entry ch = p;
 					while (parent != null && ch == parent.left) {
 						ch = parent;
 						parent = parent.parent;
@@ -239,16 +239,63 @@ public class RbTree<K, V> {
 		return null;
 	}
 
+	public V getReduced() {
+		if (root == null) {
+			return null;
+		} else {
+			return root.reduced;
+		}
+	}
+
+	/** NEW: returns all values from `from` (inclusive) to `to` (exclusive) reduced
+	 *  by RbTree reducer.
+	 */
+
+	public V getReduced(K from, K to) {
+		return _getReduced(root, from, to);
+	}
+
+	private V _getReduced(Entry node, K from, K to) {
+
+		if (node == null) {
+			return null;
+		}
+
+		Comparator<? super K> cpr = comparator;
+
+		if (compare(this.firstEntry().key, from) <= 0 &&
+				compare(this.lastEntry().key, to) == -1) {
+			return node.reduced;
+		}
+
+		if (compare(from, node.key) == -1) {
+			if (compare(to, node.key) <= 0) {
+				return _getReduced(node.left, from, to);
+			} else {
+				V leftReduced = _getReduced(node.left, from, to);
+				V rightReduced = _getReduced(node.right, from, to);
+				return combine3(leftReduced, node.value, rightReduced);
+			}
+		} else {
+			V rightReduced = _getReduced(node.right, from, to);
+			if (compare(from, node.key) == 0) {
+				return combine3(null, node.value, rightReduced);
+			} else {
+				return combine3(null, null, rightReduced);
+			}
+		}
+	}
+
 	public V put(K key, V value) {
-		Entry<K, V> t = root;
+		Entry t = root;
 		if (t == null) {
-			root = new Entry<K, V>(key, value, null);
+			root = new Entry(key, value, null);
 			size = 1;
 			modCount++;
 			return null;
 		}
 		int cmp;
-		Entry<K, V> parent;
+		Entry parent;
 		// split comparator and comparable paths
 		Comparator<? super K> cpr = comparator;
 		if (cpr != null) {
@@ -277,19 +324,21 @@ public class RbTree<K, V> {
 					return t.setValue(value);
 			} while (t != null);
 		}
-		Entry<K, V> e = new Entry<K, V>(key, value, parent);
+		Entry e = new Entry(key, value, parent);
 		if (cmp < 0)
 			parent.left = e;
 		else
 			parent.right = e;
 		fixAfterInsertion(e);
+		// NEW recalculate reduced value.
+		parent.fixReducedValue();
 		size++;
 		modCount++;
 		return null;
 	}
 
 	public V remove(Object key) {
-		Entry<K, V> p = getEntry(key);
+		Entry p = getEntry(key);
 		if (p == null)
 			return null;
 
@@ -309,18 +358,18 @@ public class RbTree<K, V> {
 	/**
 	 * @since 1.6
 	 */
-	public Map.Entry<K, V> firstEntry() {
+	public Entry firstEntry() {
 		return exportEntry(getFirstEntry());
 	}
 
 	/**
 	 * @since 1.6
 	 */
-	public Map.Entry<K, V> lastEntry() {
+	public Entry lastEntry() {
 		return exportEntry(getLastEntry());
 	}
 
-	public Map.Entry<K, V> lowerEntry(K key) {
+	public Entry lowerEntry(K key) {
 		return exportEntry(getLowerEntry(key));
 	}
 
@@ -328,7 +377,7 @@ public class RbTree<K, V> {
 		return keyOrNull(getLowerEntry(key));
 	}
 
-	public Map.Entry<K, V> floorEntry(K key) {
+	public Entry floorEntry(K key) {
 		return exportEntry(getFloorEntry(key));
 	}
 
@@ -336,7 +385,7 @@ public class RbTree<K, V> {
 		return keyOrNull(getFloorEntry(key));
 	}
 
-	public Map.Entry<K, V> ceilingEntry(K key) {
+	public Entry ceilingEntry(K key) {
 		return exportEntry(getCeilingEntry(key));
 	}
 
@@ -344,7 +393,7 @@ public class RbTree<K, V> {
 		return keyOrNull(getCeilingEntry(key));
 	}
 
-	public Map.Entry<K, V> higherEntry(K key) {
+	public Entry higherEntry(K key) {
 		return exportEntry(getHigherEntry(key));
 	}
 
@@ -356,15 +405,35 @@ public class RbTree<K, V> {
 		return new KeyIterator(getFirstEntry());
 	}
 
+	/*
+	 * NEW combines two values using given reducing function. Takes care of null values
+	 */
+	private V combine2(V l, V r) {
+		if (l == null) {
+			return r;
+		} else if (r == null) {
+			return l;
+		} else {
+			return reducer.reduce(l, r);
+		}
+	}
+
+	/*
+	 * NEW combines three values using given reducing function. Takes care of null values
+	 */
+	V combine3(V l, V v, V r) {
+		return combine2(combine2(l, v), r);
+	}
+
 	/**
 	 * Base class for TreeMap Iterators
 	 */
 	abstract class PrivateEntryIterator<T> implements Iterator<T> {
-		Entry<K, V> next;
-		Entry<K, V> lastReturned;
+		Entry next;
+		Entry lastReturned;
 		int expectedModCount;
 
-		PrivateEntryIterator(Entry<K, V> first) {
+		PrivateEntryIterator(Entry first) {
 			expectedModCount = modCount;
 			lastReturned = null;
 			next = first;
@@ -375,8 +444,8 @@ public class RbTree<K, V> {
 			return next != null;
 		}
 
-		final Entry<K, V> nextEntry() {
-			Entry<K, V> e = next;
+		final Entry nextEntry() {
+			Entry e = next;
 			if (e == null)
 				throw new NoSuchElementException();
 			if (modCount != expectedModCount)
@@ -386,8 +455,8 @@ public class RbTree<K, V> {
 			return e;
 		}
 
-		final Entry<K, V> prevEntry() {
-			Entry<K, V> e = next;
+		final Entry prevEntry() {
+			Entry e = next;
 			if (e == null)
 				throw new NoSuchElementException();
 			if (modCount != expectedModCount)
@@ -412,20 +481,22 @@ public class RbTree<K, V> {
 		}
 	}
 
-	final class EntryIterator extends PrivateEntryIterator<Map.Entry<K, V>> {
-		EntryIterator(Entry<K, V> first) {
+	final class EntryIterator extends PrivateEntryIterator<Entry> {
+		EntryIterator(Entry first) {
 			super(first);
 		}
+
 		@Override
-		public Map.Entry<K, V> next() {
+		public Entry next() {
 			return nextEntry();
 		}
 	}
 
 	final class KeyIterator extends PrivateEntryIterator<K> {
-		KeyIterator(Entry<K, V> first) {
+		KeyIterator(Entry first) {
 			super(first);
 		}
+
 		@Override
 		public K next() {
 			return nextEntry().key;
@@ -438,9 +509,7 @@ public class RbTree<K, V> {
 	 * Compares two keys using the correct comparison method for this TreeMap.
 	 */
 	final int compare(Object k1, Object k2) {
-		return comparator == null
-				? ((Comparable<? super K>) k1).compareTo((K) k2)
-				: comparator.compare((K) k1, (K) k2);
+		return comparator == null ? ((Comparable<? super K>) k1).compareTo((K) k2) : comparator.compare((K) k1, (K) k2);
 	}
 
 	/**
@@ -454,24 +523,26 @@ public class RbTree<K, V> {
 	/**
 	 * Return SimpleImmutableEntry for entry, or null if null
 	 */
-	static <K, V> Map.Entry<K, V> exportEntry(RbTree.Entry<K, V> e) {
-		return e == null ? null : new AbstractMap.SimpleImmutableEntry<K, V>(e);
+	Entry exportEntry(Entry e) {
+		// This was supposed to do some kind of copy..?
+		// Don't understand it, identity will work for now ;)
+		return e;
 	}
 
 	/**
 	 * Return key for entry, or null if null
 	 */
-	static <K, V> K keyOrNull(RbTree.Entry<K, V> e) {
+	K keyOrNull(Entry e) {
 		return e == null ? null : e.key;
 	}
 
 	/**
 	 * Returns the key corresponding to the specified Entry.
-	 * 
+	 *
 	 * @throws NoSuchElementException
 	 *             if the Entry is null
 	 */
-	static <K> K key(Entry<K, ?> e) {
+	K key(Entry e) {
 		if (e == null)
 			throw new NoSuchElementException();
 		return e.key;
@@ -487,22 +558,24 @@ public class RbTree<K, V> {
 	 * (see Map.Entry).
 	 */
 
-	static final class Entry<K, V> implements Map.Entry<K, V> {
+	final class Entry {
 		K key;
 		V value;
-		Entry<K, V> left = null;
-		Entry<K, V> right = null;
-		Entry<K, V> parent;
+		V reduced;
+		Entry left = null;
+		Entry right = null;
+		Entry parent;
 		boolean color = BLACK;
 
 		/**
 		 * Make a new cell with given key, value, and parent, and with
 		 * <tt>null</tt> child links, and BLACK color.
 		 */
-		Entry(K key, V value, Entry<K, V> parent) {
+		Entry(K key, V value, Entry parent) {
 			this.key = key;
 			this.value = value;
 			this.parent = parent;
+			this.reduced = value;
 		}
 
 		/**
@@ -510,7 +583,6 @@ public class RbTree<K, V> {
 		 *
 		 * @return the key
 		 */
-		@Override
 		public K getKey() {
 			return key;
 		}
@@ -520,7 +592,6 @@ public class RbTree<K, V> {
 		 *
 		 * @return the value associated with the key
 		 */
-		@Override
 		public V getValue() {
 			return value;
 		}
@@ -532,11 +603,43 @@ public class RbTree<K, V> {
 		 * @return the value associated with the key before this method was
 		 *         called
 		 */
-		@Override
 		public V setValue(V value) {
 			V oldValue = this.value;
 			this.value = value;
+			// NEW recalculate reduced value.
+			fixReducedValue();
 			return oldValue;
+		}
+
+		/**
+		 * NEW recalculate the reduced value in the node.
+		 */
+		private void fixReducedValue() {
+			if (reducer != null) {
+				this.fixReducedValueOne();
+				if (this.parent != null) {
+					this.parent.fixReducedValue();
+				}
+			}
+		}
+
+		/**
+		 * NEW recalculate the reduced value in the node.
+		 */
+		private void fixReducedValueOne() {
+			if (this.value == null) {
+				this.reduced = null;
+				return;
+			}
+			V l = null;
+			V r = null;
+			if (this.left != null) {
+				l = this.left.reduced;
+			}
+			if (this.right != null) {
+				r = this.right.reduced;
+			}
+			this.reduced = combine3(l, this.value, r);
 		}
 
 		@Override
@@ -565,8 +668,8 @@ public class RbTree<K, V> {
 	 * Returns the first Entry in the TreeMap (according to the TreeMap's
 	 * key-sort function). Returns null if the TreeMap is empty.
 	 */
-	final Entry<K, V> getFirstEntry() {
-		Entry<K, V> p = root;
+	final Entry getFirstEntry() {
+		Entry p = root;
 		if (p != null)
 			while (p.left != null)
 				p = p.left;
@@ -577,8 +680,8 @@ public class RbTree<K, V> {
 	 * Returns the last Entry in the TreeMap (according to the TreeMap's
 	 * key-sort function). Returns null if the TreeMap is empty.
 	 */
-	final Entry<K, V> getLastEntry() {
-		Entry<K, V> p = root;
+	final Entry getLastEntry() {
+		Entry p = root;
 		if (p != null)
 			while (p.right != null)
 				p = p.right;
@@ -588,17 +691,17 @@ public class RbTree<K, V> {
 	/**
 	 * Returns the successor of the specified Entry, or null if no such.
 	 */
-	static <K, V> RbTree.Entry<K, V> successor(Entry<K, V> t) {
+	<K, V> Entry successor(Entry t) {
 		if (t == null)
 			return null;
 		else if (t.right != null) {
-			Entry<K, V> p = t.right;
+			Entry p = t.right;
 			while (p.left != null)
 				p = p.left;
 			return p;
 		} else {
-			Entry<K, V> p = t.parent;
-			Entry<K, V> ch = t;
+			Entry p = t.parent;
+			Entry ch = t;
 			while (p != null && ch == p.right) {
 				ch = p;
 				p = p.parent;
@@ -610,17 +713,17 @@ public class RbTree<K, V> {
 	/**
 	 * Returns the predecessor of the specified Entry, or null if no such.
 	 */
-	static <K, V> Entry<K, V> predecessor(Entry<K, V> t) {
+	<K, V> Entry predecessor(Entry t) {
 		if (t == null)
 			return null;
 		else if (t.left != null) {
-			Entry<K, V> p = t.left;
+			Entry p = t.left;
 			while (p.right != null)
 				p = p.right;
 			return p;
 		} else {
-			Entry<K, V> p = t.parent;
-			Entry<K, V> ch = t;
+			Entry p = t.parent;
+			Entry ch = t;
 			while (p != null && ch == p.left) {
 				ch = p;
 				p = p.parent;
@@ -639,31 +742,44 @@ public class RbTree<K, V> {
 	 * algorithms.
 	 */
 
-	private static <K, V> boolean colorOf(Entry<K, V> p) {
+	private boolean colorOf(Entry p) {
 		return (p == null ? BLACK : p.color);
 	}
 
-	private static <K, V> Entry<K, V> parentOf(Entry<K, V> p) {
+	private Entry parentOf(Entry p) {
 		return (p == null ? null : p.parent);
 	}
 
-	private static <K, V> void setColor(Entry<K, V> p, boolean c) {
+	private void setColor(Entry p, boolean c) {
 		if (p != null)
 			p.color = c;
 	}
 
-	private static <K, V> Entry<K, V> leftOf(Entry<K, V> p) {
+	private Entry leftOf(Entry p) {
 		return (p == null) ? null : p.left;
 	}
 
-	private static <K, V> Entry<K, V> rightOf(Entry<K, V> p) {
+	private Entry rightOf(Entry p) {
 		return (p == null) ? null : p.right;
 	}
 
 	/** From CLR */
-	private void rotateLeft(Entry<K, V> p) {
+
+	/**
+	 *     p
+	 *      \
+	 *       r
+	 *      /
+	 *     a
+	 *
+	 *
+	 *     r
+	 *    / \
+	 *   p   a
+	 */
+	private void rotateLeft(Entry p) {
 		if (p != null) {
-			Entry<K, V> r = p.right;
+			Entry r = p.right;
 			p.right = r.left;
 			if (r.left != null)
 				r.left.parent = p;
@@ -677,12 +793,15 @@ public class RbTree<K, V> {
 			r.left = p;
 			p.parent = r;
 		}
+		// NEW recalculate reduced value. Note that it is enough to
+		// run this on vertex `p` as it also updates it's parent (`r`)
+		p.fixReducedValue();
 	}
 
 	/** From CLR */
-	private void rotateRight(Entry<K, V> p) {
+	private void rotateRight(Entry p) {
 		if (p != null) {
-			Entry<K, V> l = p.left;
+			Entry l = p.left;
 			p.left = l.right;
 			if (l.right != null)
 				l.right.parent = p;
@@ -696,15 +815,17 @@ public class RbTree<K, V> {
 			l.right = p;
 			p.parent = l;
 		}
+		// NEW recalculate reduced value.
+		p.fixReducedValue();
 	}
 
 	/** From CLR */
-	private void fixAfterInsertion(Entry<K, V> x) {
+	private void fixAfterInsertion(Entry x) {
 		x.color = RED;
 
 		while (x != null && x != root && x.parent.color == RED) {
 			if (parentOf(x) == leftOf(parentOf(parentOf(x)))) {
-				Entry<K, V> y = rightOf(parentOf(parentOf(x)));
+				Entry y = rightOf(parentOf(parentOf(x)));
 				if (colorOf(y) == RED) {
 					setColor(parentOf(x), BLACK);
 					setColor(y, BLACK);
@@ -720,7 +841,7 @@ public class RbTree<K, V> {
 					rotateRight(parentOf(parentOf(x)));
 				}
 			} else {
-				Entry<K, V> y = leftOf(parentOf(parentOf(x)));
+				Entry y = leftOf(parentOf(parentOf(x)));
 				if (colorOf(y) == RED) {
 					setColor(parentOf(x), BLACK);
 					setColor(y, BLACK);
@@ -743,21 +864,21 @@ public class RbTree<K, V> {
 	/**
 	 * Delete node p, and then rebalance the tree.
 	 */
-	private void deleteEntry(Entry<K, V> p) {
+	private void deleteEntry(Entry p) {
 		modCount++;
 		size--;
 
 		// If strictly internal, copy successor's element to p and then make p
 		// point to successor.
 		if (p.left != null && p.right != null) {
-			Entry<K, V> s = successor(p);
+			Entry s = successor(p);
 			p.key = s.key;
 			p.value = s.value;
 			p = s;
 		} // p has 2 children
 
 		// Start fixup at replacement node, if it exists.
-		Entry<K, V> replacement = (p.left != null ? p.left : p.right);
+		Entry replacement = (p.left != null ? p.left : p.right);
 
 		if (replacement != null) {
 			// Link replacement to parent
@@ -769,6 +890,8 @@ public class RbTree<K, V> {
 			else
 				p.parent.right = replacement;
 
+			// NEW recalculate reduced value.
+			p.parent.fixReducedValue();
 			// Null out links so they are OK to use by fixAfterDeletion.
 			p.left = p.right = p.parent = null;
 
@@ -786,16 +909,21 @@ public class RbTree<K, V> {
 					p.parent.left = null;
 				else if (p == p.parent.right)
 					p.parent.right = null;
+				// NEW recalculate reduced value.
+				p.parent.fixReducedValue();
 				p.parent = null;
 			}
 		}
+		// NEW recalculate reduced value.
+		// TODO this is probably not always necessary?
+		p.fixReducedValue();
 	}
 
 	/** From CLR */
-	private void fixAfterDeletion(Entry<K, V> x) {
+	private void fixAfterDeletion(Entry x) {
 		while (x != root && colorOf(x) == BLACK) {
 			if (x == leftOf(parentOf(x))) {
-				Entry<K, V> sib = rightOf(parentOf(x));
+				Entry sib = rightOf(parentOf(x));
 
 				if (colorOf(sib) == RED) {
 					setColor(sib, BLACK);
@@ -804,8 +932,7 @@ public class RbTree<K, V> {
 					sib = rightOf(parentOf(x));
 				}
 
-				if (colorOf(leftOf(sib)) == BLACK
-						&& colorOf(rightOf(sib)) == BLACK) {
+				if (colorOf(leftOf(sib)) == BLACK && colorOf(rightOf(sib)) == BLACK) {
 					setColor(sib, RED);
 					x = parentOf(x);
 				} else {
@@ -822,7 +949,7 @@ public class RbTree<K, V> {
 					x = root;
 				}
 			} else { // symmetric
-				Entry<K, V> sib = leftOf(parentOf(x));
+				Entry sib = leftOf(parentOf(x));
 
 				if (colorOf(sib) == RED) {
 					setColor(sib, BLACK);
@@ -831,8 +958,7 @@ public class RbTree<K, V> {
 					sib = leftOf(parentOf(x));
 				}
 
-				if (colorOf(rightOf(sib)) == BLACK
-						&& colorOf(leftOf(sib)) == BLACK) {
+				if (colorOf(rightOf(sib)) == BLACK && colorOf(leftOf(sib)) == BLACK) {
 					setColor(sib, RED);
 					x = parentOf(x);
 				} else {
