@@ -113,7 +113,7 @@ public class Main {
 			cnt++;
 
 			boolean success = area.doRandomChange();
-			//System.out.print(area.mutationType);
+			// System.out.print(area.mutationType);
 			if (success) {
 				System.out.print("+");
 				cntSuccess++;
@@ -131,9 +131,9 @@ public class Main {
 				assert area.diff == area.diffTest();
 				// Diff: incremental diff, own merging of transparent colors,
 
-				// if (cnt >= 5000) {
-				// gWindowClosing = true;
-				// }
+				if (cnt >= 5000) {
+					gWindowClosing = true;
+				}
 			}
 			if (gWindowClosing) {
 				long stopTime = System.currentTimeMillis();

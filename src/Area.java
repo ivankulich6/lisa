@@ -35,9 +35,7 @@ public class Area {
 	int[] mutaPixelsWork;
 	int mutaPixelsCount;
 	private double addeDiff; // additive difference
-	private double newAddeDiff;
 	double diff;
-	private double newDiff;
 	double temp;
 	Random randg;
 
@@ -95,8 +93,8 @@ public class Area {
 		for (int j = 0; j < width * height; j++) {
 			pixels[j].targetRgb = rgb[j];
 		}
-		addeDiff = newAddeDiff = diff();
-		diff = penaltyShape(pointsCount);
+		addeDiff = diff();
+		diff = penaltyShape(addeDiff, pointsCount);
 	}
 
 	private int[] getShapePixels(int[][] shape) {
@@ -284,11 +282,11 @@ public class Area {
 		}
 	}
 
-	public double prepareAddShape(int[][] newShape) {
+	public double diffIncIfAdded(int[][] newShape) {
 		double diffOfDiff = 0;
 		findMutaPixelsNewShape(newShape);
 		for (int j = 0; j < mutaPixelsCount; j++) {
-			diffOfDiff += pixels[mutaPixels[j].index].prepareAddShape(newShape);
+			diffOfDiff += pixels[mutaPixels[j].index].diffIncIfAdded(newShape);
 		}
 		return diffOfDiff;
 	}
@@ -300,11 +298,11 @@ public class Area {
 		return;
 	}
 
-	public double prepareRemoveShape(int[][] oldShape) {
+	public double diffIncIfRemoved(int[][] oldShape) {
 		double diffOfDiff = 0;
 		findMutaPixelsOldShape(oldShape);
 		for (int j = 0; j < mutaPixelsCount; j++) {
-			diffOfDiff += pixels[mutaPixels[j].index].prepareRemoveShape(oldShape);
+			diffOfDiff += pixels[mutaPixels[j].index].diffIncIfRemoved(oldShape);
 		}
 		return diffOfDiff;
 	}
@@ -316,14 +314,14 @@ public class Area {
 		return;
 	}
 
-	public double prepareReplaceShape(int[][] oldShape, int[][] newShape) {
+	public double diffIncIfReplaced(int[][] oldShape, int[][] newShape) {
 		if (oldShape == null && newShape == null) {
 			return 0;
 		}
 		if (oldShape == null) {
-			return prepareAddShape(newShape);
+			return diffIncIfAdded(newShape);
 		} else if (newShape == null) {
-			return prepareRemoveShape(oldShape);
+			return diffIncIfRemoved(oldShape);
 		} else {
 			double diffOfDiff = 0;
 			boolean sameRgba = sameRgba(newShape[SHAPE_COLOR_INDEX], oldShape[SHAPE_COLOR_INDEX]);
@@ -331,7 +329,7 @@ public class Area {
 			findMutaPixelsOldNewShape(oldShape, newShape);
 			for (int j = 0; j < mutaPixelsCount; j++) {
 				mp = mutaPixels[j];
-				diffOfDiff += pixels[mp.index].prepareReplaceShape(oldShape, newShape, mp.intype, sameRgba);
+				diffOfDiff += pixels[mp.index].diffIncIfReplaced(oldShape, newShape, mp.intype, sameRgba);
 			}
 			return diffOfDiff;
 
@@ -377,12 +375,12 @@ public class Area {
 		return pointsCount * pointsCount / 10000000000.0;
 	}
 
-	private double penaltyRgb() {
-		return newAddeDiff / (width * height);
+	private double penaltyRgb(double addeDiff) {
+		return addeDiff / (width * height);
 	}
 
-	private double penaltyShape(int pointsCount) {
-		return penaltyRgb() + penalty(pointsCount);
+	private double penaltyShape(double addeDiff, int pointsCount) {
+		return penaltyRgb(addeDiff) + penalty(pointsCount);
 	}
 
 	public double diffTest() {
@@ -571,8 +569,8 @@ public class Area {
 
 		temp = Math.max(temp, Math.pow(10, -10));
 		getRandomMutation();
-		newAddeDiff = addeDiff + prepareReplaceShape(mutation.oldShape, mutation.newShape);
-		newDiff = penaltyShape(mutation.pointsCount);
+		double newAddeDiff = addeDiff + diffIncIfReplaced(mutation.oldShape, mutation.newShape);
+		double newDiff = penaltyShape(newAddeDiff, mutation.pointsCount);
 		// newDiff < d -> vzdy true
 		// newDiff - d = temp -> akceptujem so sancou e^-1
 		// newDiff - d = 2temp -> akceptujem so sancou e^-2

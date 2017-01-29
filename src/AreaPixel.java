@@ -14,7 +14,7 @@ public class AreaPixel {
 		targetRgb = new int[3];
 	}
 
-	public int prepareAddShape(int[][] shape) {
+	public int diffIncIfAdded(int[][] shape) {
 		int diffOld = diff();
 		float rgba[] = { 255, 255, 255, 255 };
 		for (Map.Entry<Integer, int[][]> entry : shapes.entrySet()) {
@@ -25,7 +25,7 @@ public class AreaPixel {
 		return diff(newRgb, targetRgb) - diffOld;
 	}
 
-	public int prepareRemoveShape(int[][] shape) {
+	public int diffIncIfRemoved(int[][] shape) {
 		int diffOld = diff();
 		int order = getShapeOrder(shape);
 		int[][] savedShape;
@@ -40,7 +40,7 @@ public class AreaPixel {
 		return diff(newRgb, targetRgb) - diffOld;
 	}
 
-	public int prepareReplaceShape(int[][] oldShape, int[][] newShape, int intype, boolean sameRgba) {
+	public int diffIncIfReplaced(int[][] oldShape, int[][] newShape, int intype, boolean sameRgba) {
 		int order = getShapeOrder(newShape);
 		assert order == getShapeOrder(oldShape);
 		if (intype == 3 && sameRgba) {
