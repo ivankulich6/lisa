@@ -1,15 +1,12 @@
-import java.util.Map;
-import java.util.TreeMap;
-
 public class AreaPixel {
 	public int[] rgb;
-	public TreeMap<Integer, int[][]> shapes;
+	public RbTree<Integer, int[][]> shapes;
 	public int[] newRgb;
 	public int[] targetRgb;
 
 	AreaPixel() {
 		rgb = new int[] { 255, 255, 255 };
-		shapes = new TreeMap<Integer, int[][]>();
+		shapes = new RbTree<Integer, int[][]>();
 		newRgb = new int[3];
 		targetRgb = new int[3];
 	}
@@ -17,8 +14,10 @@ public class AreaPixel {
 	public int diffIncIfAdded(int[][] shape) {
 		int diffOld = diff();
 		float rgba[] = { 255, 255, 255, 255 };
-		for (Map.Entry<Integer, int[][]> entry : shapes.entrySet()) {
-			convexCombine(entry.getValue()[Area.SHAPE_COLOR_INDEX], rgba, rgba);
+
+		RbTree<Integer, int[][]>.EntryIterator it = shapes.new EntryIterator(shapes.firstEntry());
+		while (it.hasNext()) {
+			convexCombine(it.next().getValue()[Area.SHAPE_COLOR_INDEX], rgba, rgba);
 		}
 		convexCombine(shape[Area.SHAPE_COLOR_INDEX], rgba, rgba);
 		Utils.colorNoAlpha(rgba, newRgb);
@@ -30,8 +29,9 @@ public class AreaPixel {
 		int order = getShapeOrder(shape);
 		int[][] savedShape;
 		float rgba[] = { 255, 255, 255, 255 };
-		for (Map.Entry<Integer, int[][]> entry : shapes.entrySet()) {
-			savedShape = entry.getValue();
+		RbTree<Integer, int[][]>.EntryIterator it = shapes.new EntryIterator(shapes.firstEntry());
+		while (it.hasNext()) {
+			savedShape = it.next().getValue();
 			if (getShapeOrder(savedShape) != order) {
 				convexCombine(savedShape[Area.SHAPE_COLOR_INDEX], rgba, rgba);
 			}
@@ -51,16 +51,18 @@ public class AreaPixel {
 			int[][] savedShape = null;
 			float rgba[] = { 255, 255, 255, 255 };
 			if (intype == 1) {
-				for (Map.Entry<Integer, int[][]> entry : shapes.entrySet()) {
-					savedShape = entry.getValue();
+				RbTree<Integer, int[][]>.EntryIterator it = shapes.new EntryIterator(shapes.firstEntry());
+				while (it.hasNext()) {
+					savedShape = it.next().getValue();
 					if (getShapeOrder(savedShape) != order) {
 						convexCombine(savedShape[Area.SHAPE_COLOR_INDEX], rgba, rgba);
 					}
 				}
 			} else if (intype == 2) {
 				boolean add = true;
-				for (Map.Entry<Integer, int[][]> entry : shapes.entrySet()) {
-					savedShape = entry.getValue();
+				RbTree<Integer, int[][]>.EntryIterator it = shapes.new EntryIterator(shapes.firstEntry());
+				while (it.hasNext()) {
+					savedShape = it.next().getValue();
 					if (getShapeOrder(savedShape) > order) {
 						if (add) {
 							convexCombine(newShape[Area.SHAPE_COLOR_INDEX], rgba, rgba);
@@ -71,12 +73,14 @@ public class AreaPixel {
 						convexCombine(savedShape[Area.SHAPE_COLOR_INDEX], rgba, rgba);
 					}
 				}
+
 				if (add) {
 					convexCombine(newShape[Area.SHAPE_COLOR_INDEX], rgba, rgba);
 				}
 			} else if (intype == 3) {
-				for (Map.Entry<Integer, int[][]> entry : shapes.entrySet()) {
-					savedShape = entry.getValue();
+				RbTree<Integer, int[][]>.EntryIterator it = shapes.new EntryIterator(shapes.firstEntry());
+				while (it.hasNext()) {
+					savedShape = it.next().getValue();
 					if (getShapeOrder(savedShape) != order) {
 						convexCombine(savedShape[Area.SHAPE_COLOR_INDEX], rgba, rgba);
 					} else {
@@ -132,8 +136,9 @@ public class AreaPixel {
 
 	public void rgbRegen(int[] rgb) {
 		float rgba[] = { 255, 255, 255, 255 };
-		for (Map.Entry<Integer, int[][]> entry : shapes.entrySet()) {
-			convexCombine(entry.getValue()[0], rgba, rgba);
+		RbTree<Integer, int[][]>.EntryIterator it = shapes.new EntryIterator(shapes.firstEntry());
+		while (it.hasNext()) {
+			convexCombine(it.next().getValue()[0], rgba, rgba);
 		}
 		Utils.colorNoAlpha(rgba, rgb);
 	}

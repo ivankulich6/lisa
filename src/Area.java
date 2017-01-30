@@ -5,9 +5,7 @@ import java.awt.image.DataBufferInt;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
-import java.util.Map;
 import java.util.Random;
-import java.util.TreeMap;
 
 public class Area {
 	// maintain array shapes
@@ -448,9 +446,11 @@ public class Area {
 		}
 		int index2 = randg.nextInt(nPixShapes);
 		int j = 0;
-		for (Map.Entry<Integer, int[][]> entry : pixels[index].shapes.entrySet()) {
+		RbTree<Integer, int[][]>.EntryIterator it = pixels[index].shapes.new EntryIterator(
+				pixels[index].shapes.firstEntry());
+		while (it.hasNext()) {
 			if (j++ >= index2) {
-				return entry.getValue();
+				return it.next().getValue();
 			}
 		}
 		return null;
@@ -596,14 +596,20 @@ public class Area {
 	}
 
 	public int[][][] extractShapes() {
-		TreeMap<Integer, int[][]> exShapes = new TreeMap<Integer, int[][]>();
+		RbTree<Integer, int[][]> exShapes = new RbTree<Integer, int[][]>();
 		for (int j = 0; j < height * width; j++) {
-			exShapes.putAll(pixels[j].shapes);
+			RbTree<Integer, int[][]>.EntryIterator it = pixels[j].shapes.new EntryIterator(
+					pixels[j].shapes.firstEntry());
+			while (it.hasNext()) {
+				RbTree<Integer, int[][]>.Entry entry = it.next();
+				exShapes.put(entry.getKey(), entry.getValue());
+			}
 		}
 		int[][][] outShapes = new int[exShapes.size()][][];
 		int j = 0;
-		for (Map.Entry<Integer, int[][]> entry : exShapes.entrySet()) {
-			outShapes[j++] = entry.getValue();
+		RbTree<Integer, int[][]>.EntryIterator it = exShapes.new EntryIterator(exShapes.firstEntry());
+		while (it.hasNext()) {
+			outShapes[j++] = it.next().getValue();
 		}
 		return outShapes;
 	}
