@@ -262,8 +262,10 @@ public class RbTree<K, V> {
 		}
 
 		Comparator<? super K> cpr = comparator;
-
-		if (compare(this.firstEntry().key, from) <= 0 &&
+		/*
+		 * IKU v nasledovnom riadku som zmenil povodnu nerovnost <= na >=, robilo to zle
+		 */
+		if (compare(this.firstEntry().key, from) >= 0 &&
 				compare(this.lastEntry().key, to) == -1) {
 			return node.reduced;
 		}
@@ -891,6 +893,9 @@ public class RbTree<K, V> {
 				p.parent.right = replacement;
 
 			// NEW recalculate reduced value.
+			/*
+			 * IKU nasledovné volanie som obalil do if, lebo mi to padalo na null pointri
+			 */
 			if (p.parent != null){
 				p.parent.fixReducedValue();
 			}

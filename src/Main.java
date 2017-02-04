@@ -19,30 +19,23 @@ public class Main {
 	DrawingPanel drawing;
 	boolean gWindowClosing = false;
 
-	/*
-	 * shapes: [[[r, g, b, a, o], [p0x, p0y], [p1x, p2x], ...], ...] o = unique,
-	 * immutable order number, satisfied cond. (if shape1 index < shape2 index,
-	 * then shape1 o < shape2 o)
-	 */
-
-	private void _drawShapes(int[][][] shapes, BufferedImage img) {
+	private void _drawShapes(Area.Shape[] shapes, BufferedImage img) {
 		Graphics g = img.getGraphics();
-		for (int shape[][] : shapes) {
-			int[] color = shape[Area.SHAPE_COLOR_INDEX];
+		for (Area.Shape shape : shapes) {
+			int[] color = shape.getColor();
 			g.setColor(new Color(color[0], color[1], color[2], color[3]));
-			int npoints = shape.length - Area.SHAPE_NOPOINTS_COUNT;
+			int npoints = shape.points.length;
 			int xpoints[] = new int[npoints];
 			int ypoints[] = new int[npoints];
 			for (int i = 0; i < npoints; i++) {
-				// 0-th element of shape is color
-				xpoints[i] = shape[i + Area.SHAPE_COLOR_INDEX + 1][0];
-				ypoints[i] = shape[i + Area.SHAPE_COLOR_INDEX + 1][1];
+				xpoints[i] = shape.points[i][0];
+				ypoints[i] = shape.points[i][1];
 			}
 			g.fillPolygon(xpoints, ypoints, npoints);
 		}
 	}
 
-	private BufferedImage drawShapes(int[][][] shapes) {
+	private BufferedImage drawShapes(Area.Shape[] shapes) {
 		BufferedImage tmp = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
 		Graphics g = tmp.getGraphics();
 		g.setColor(new Color(255, 255, 255));
@@ -82,7 +75,7 @@ public class Main {
 	}
 
 	public static void main(String[] args) throws IOException {
-		System.out.println("Hello");
+		System.out.println("Hello RbTree");
 		Main p = new Main();
 		p.run();
 	}
@@ -95,6 +88,8 @@ public class Main {
 	}
 
 	public void run() throws IOException {
+		assert !AreaPixel.RBTREE_WITHOUT_REDUCER || AreaPixel.DIFF_INC_IF_ITERATE;
+		Area.logClean();
 		long startTime = System.currentTimeMillis();
 
 		BufferedImage target = readImage("women_small.jpg");
@@ -111,9 +106,8 @@ public class Main {
 
 		while (true) {
 			cnt++;
-
 			boolean success = area.doRandomChange();
-			//System.out.print(area.mutationType);
+			// System.out.print(area.mutationType);
 			if (success) {
 				System.out.print("+");
 				cntSuccess++;
@@ -123,23 +117,24 @@ public class Main {
 				}
 			}
 			if (cnt % 100 == 0) {
+				double diffAll = area.diffTest();
 				System.out.println("");
-				System.out.println("Diff=" + area.diff + ", cnt=" + cnt + ", polygons=" + area.shapesCount + ", temp="
-						+ area.temp);
+				System.out.println("Diff=" + area.diff + " DiffAll=" + diffAll + ", cnt=" + cnt + ", polygons="
+						+ area.shapesCount + ", temp=" + area.temp);
 				// incrementally computed difference should fit whole area
-				// recomputed difference
-				assert area.diff == area.diffTest();
+				// recomputed difference diffAll
+				// assert Math.abs(area.diff - diffAll) < 1.e-1;
 				// Diff: incremental diff, own merging of transparent colors,
 
-				// if (cnt >= 5000) {
-				// gWindowClosing = true;
-				// }
+				if (cnt >= 5000) {
+					gWindowClosing = true;
+				}
 			}
 			if (gWindowClosing) {
 				long stopTime = System.currentTimeMillis();
 				long elapsedTime = stopTime - startTime;
 				System.out.println("elapsedTime = " + elapsedTime + " milliseconds");
-				int[][][] exShapes = area.extractShapes();
+				Area.Shape[] exShapes = area.extractShapes();
 				assert exShapes.length == area.shapesCount;
 				assert area.recalcPointsCount(exShapes) == area.pointsCount;
 				if (!Area.useShapesArray) {
@@ -148,12 +143,12 @@ public class Main {
 				System.out.println("");
 				System.out.println("Diff=" + area.diff + ", cnt=" + cnt + ", polygons=" + area.shapesCount + ", temp="
 						+ area.temp);
-				assert area.diff == area.diffTest();
 
 				shapesImg = drawShapes(area.shapes);
 				// drawing.draw(shapesImg);
-				double dt2 = area.diffTest(addeDiff(shapesImg, target));
-				System.out.println("Diff2=" + dt2);
+				double diffAll = area.diffTest();
+				double diff2 = area.diffTest(addeDiff(shapesImg, target));
+				System.out.println("DiffAll=" + diffAll + " Diff2=" + diff2);
 				// Diff2: regenerated whole area diff, merging of transparent
 				// colors by imported Graphics (fillPolygon)
 				area.saveShapes("testdata/shapes01.txt");
