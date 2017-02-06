@@ -1,11 +1,13 @@
 import java.awt.Color;
 import java.awt.Graphics;
+import java.awt.List;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.LinkedList;
 import java.util.Random;
 
 public class Area {
@@ -118,7 +120,7 @@ public class Area {
 
 	private int[] getShapePixels(Shape shape) {
 		Graphics g = tempBufferedImage.getGraphics();
-		g.setColor(new Color(255, 255, 255));
+		g.setColor(new Color(255, 255, 255, 255));
 		g.fillRect(0, 0, width, height);
 		g.setColor(new Color(0, 0, 0, 255));
 		int npoints = shape.points.length;
@@ -155,6 +157,9 @@ public class Area {
 
 	private int[] initIndexInNew() {
 		int[] iter = { shapeRange.yMin, shapeRange.xMin - 1, width * shapeRange.yMin + shapeRange.xMin - 1 };
+		if(shapeRange.yMin == shapeRange.yMax){
+			iter[1] = shapeRange.xMax;
+		}
 		return iter;
 	}
 
@@ -414,10 +419,10 @@ public class Area {
 		shape.order = gOrder++;
 		float[] color = new float[4];
 		for (int i = 0; i < 3; i++) {
-			color[i] = randg.nextInt(256);
+			color[i] = (1/(float)255) * randg.nextInt(256);
 		}
 		// color[3] = alpha, from 1 to 255; (0 is useless)
-		color[3] = randg.nextInt(255) + 1;
+		color[3] =  (1/(float)255) * (randg.nextInt(255) + 1);
 		shape.rgba = color;
 		int[][] points = new int[3][];
 		for (int i = 0; i < 3; i++) {
@@ -538,6 +543,8 @@ public class Area {
 				// if messing with color, trim outputs to 0, 255
 				tmp[inninner] = Math.min(tmp[inninner], 255);
 				tmp[inninner] = Math.max(tmp[inninner], 0);
+				tmp[inninner] = (1/(float)255) * tmp[inninner];
+				
 			} else {
 				inninner = randg.nextInt(newShape.points[inner - 1].length);
 				int move = randg.nextInt(20) - 10;
@@ -673,7 +680,7 @@ public class Area {
 	}
 
 	public static int[] getRgbaInt(float rgba[]) {
-		int rgbaInt[] = { Math.round(rgba[0]), Math.round(rgba[1]), Math.round(rgba[2]), Math.round(rgba[3]) };
+		int rgbaInt[] = { Math.round(255 *rgba[0]), Math.round(255 *rgba[1]), Math.round(255 * rgba[2]), Math.round(255 * rgba[3]) };
 		return rgbaInt;
 	}
 
@@ -698,6 +705,14 @@ public class Area {
 			} catch (Exception e) {
 			}
 		}
+	}
+	
+	public double getAvgNumOfShapesPerPixel() {
+		double totalShapes = 0;
+		for (int j = 0; j < height * width; j++) {
+			totalShapes += pixels[j].shapes.size();
+		}
+		return totalShapes/(height * width);
 	}
 
 	public static boolean doLog = false;
@@ -736,4 +751,6 @@ public class Area {
 		}
 	}
 
+
 }
+

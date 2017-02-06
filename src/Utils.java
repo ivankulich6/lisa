@@ -137,4 +137,20 @@ public class Utils {
 		return arrayToSb(values, values.length);
 	}
 
+	public static StringBuilder arrayToSb(double[] values, int count) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("[");
+		String delim = "";
+		for (int j = 0; j < count; j++) {
+			sb.append(delim).append(values[j]);
+			delim = ", ";
+		}
+		sb.append("]");
+		return sb;
+	}
+
+	public static StringBuilder arrayToSb(double[] values) {
+		return arrayToSb(values, values.length);
+	}
+
 }

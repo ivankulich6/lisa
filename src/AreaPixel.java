@@ -59,7 +59,6 @@ public class AreaPixel {
 		}
 	}
 
-
 	public int diffIncIfReplaced(Area.Shape oldShape, Area.Shape newShape, int intype, boolean sameRgba) {
 		if (DIFF_INC_IF_ITERATE) {
 			return diffIncIfReplaced_ITERATE(oldShape, newShape, intype, sameRgba);
@@ -72,7 +71,7 @@ public class AreaPixel {
 
 	public int diffIncIfAdded_ITERATE(Area.Shape shape) {
 		int diffOld = diff();
-		float rgba[] = { 255, 255, 255, 255 };
+		float rgba[] = { 1, 1, 1, 1 };
 		RbTree<Integer, Area.Shape>.EntryIterator it = shapes.new EntryIterator(shapes.firstEntry());
 		while (it.hasNext()) {
 			convexCombine(it.next().getValue().rgba, rgba, rgba);
@@ -109,7 +108,7 @@ public class AreaPixel {
 		int diffOld = diff();
 		int order = shape.order;
 		Area.Shape savedShape;
-		float rgba[] = { 255, 255, 255, 255 };
+		float rgba[] = { 1, 1, 1, 1 };
 		RbTree<Integer, Area.Shape>.EntryIterator it = shapes.new EntryIterator(shapes.firstEntry());
 		while (it.hasNext()) {
 			savedShape = it.next().getValue();
@@ -163,7 +162,7 @@ public class AreaPixel {
 		} else {
 			int diffOld = diff();
 			Area.Shape savedShape = null;
-			float rgba[] = { 255, 255, 255, 255 };
+			float rgba[] = { 1, 1, 1, 1 };
 			if (intype == 1) {
 				RbTree<Integer, Area.Shape>.EntryIterator it = shapes.new EntryIterator(shapes.firstEntry());
 				while (it.hasNext()) {
@@ -305,7 +304,7 @@ public class AreaPixel {
 	// can write this faster, it may improve the speed quite significantly.
 
 	public void rgbRegen(int[] rgb) {
-		float rgba[] = { 255, 255, 255, 255 };
+		float rgba[] = { 1, 1, 1, 1 };
 		RbTree<Integer, Area.Shape>.EntryIterator it = shapes.new EntryIterator(shapes.firstEntry());
 		while (it.hasNext()) {
 			convexCombine(it.next().getValue().rgba, rgba, rgba);
@@ -318,55 +317,18 @@ public class AreaPixel {
 	}
 
 	public static void convexCombine(float srcRgba[], float dstRgba[], float outRgba[]) {
-		StringBuilder sb = null;
-		float srcRgba3 = srcRgba[3];
-		float outAlpha = srcRgba3 + (dstRgba[3] * (255 - srcRgba3)) / 255;
-		if (outAlpha == 0) {
+		float outAlpha = 1 - (1 - srcRgba[3]) * (1 - dstRgba[3]);
+		if (Math.abs(outAlpha) < 1.e-10) {
 			for (int j = 0; j < 3; j++) {
 				outRgba[j] = 0;
 			}
 		} else {
-			float srcRgba3Compl = outAlpha - srcRgba3;
+			float aa = srcRgba[3] / outAlpha;
 			for (int j = 0; j < 3; j++) {
-				outRgba[j] = (srcRgba[j] * srcRgba3 + dstRgba[j] * srcRgba3Compl) / outAlpha;
+				outRgba[j] = aa * srcRgba[j] + (1 - aa) * dstRgba[j];
 			}
 		}
 		outRgba[3] = outAlpha;
-		return;
-	}
-
-	public static void convexCombine(int srcRgba[], float dstRgba[], float outRgba[]) {
-		float srcRgba3 = (float) srcRgba[3];
-		float outAlpha = srcRgba3 + (dstRgba[3] * (255 - srcRgba3)) / 255;
-		if (outAlpha == 0) {
-			for (int j = 0; j < 3; j++) {
-				outRgba[j] = 0;
-			}
-		} else {
-			float srcRgba3Compl = outAlpha - srcRgba3;
-			for (int j = 0; j < 3; j++) {
-				outRgba[j] = ((float) srcRgba[j] * srcRgba3 + dstRgba[j] * srcRgba3Compl) / outAlpha;
-			}
-		}
-		outRgba[3] = outAlpha;
-		return;
-	}
-
-	public static void convexCombineInt(int srcRgba[], int dstRgba[], int outRgba[]) {
-		double outAlpha = (double) srcRgba[3] + (double) (dstRgba[3] * (255 - srcRgba[3])) / (double) 255;
-		if (outAlpha == 0) {
-			for (int j = 0; j < 3; j++) {
-				outRgba[j] = 0;
-			}
-		} else {
-			for (int j = 0; j < 3; j++) {
-				outRgba[j] = (int) Math.round(((double) srcRgba[j] * (double) srcRgba[3] + (double) dstRgba[j]
-						* (double) (outAlpha - srcRgba[3]))
-						/ outAlpha);
-			}
-
-		}
-		outRgba[3] = (int) Math.round(outAlpha);
 		return;
 	}
 
@@ -387,9 +349,9 @@ public class AreaPixel {
 	}
 
 	public static final void colorSkipAlpha(float rgba[], int rgb[]) {
-		rgb[0] = Math.round(rgba[0]);
-		rgb[1] = Math.round(rgba[1]);
-		rgb[2] = Math.round(rgba[2]);
+		rgb[0] = Math.round(255 * rgba[0]);
+		rgb[1] = Math.round(255 * rgba[1]);
+		rgb[2] = Math.round(255 * rgba[2]);
 	}
 
 	public static final void setBkgColor(int rgb[]) {
@@ -397,7 +359,7 @@ public class AreaPixel {
 	}
 
 	private void addBkgColor(float[] rgbaSrc, int[] rgbOut) {
-		float rgba[] = { 255, 255, 255, 255 };
+		float rgba[] = { 1, 1, 1, 1 };
 		convexCombine(rgbaSrc, rgba, rgba);
 		colorSkipAlpha(rgba, rgbOut);
 	}
@@ -405,11 +367,11 @@ public class AreaPixel {
 	private void diffLog(int d, int dTest) {
 		if (Math.abs(d - dTest) > 0) {
 			Area.doLog = true;
-			String s = "d=" + d + " dTest=" + dTest + " cnt=" + Area.cntRandomChange + " mutType="
-					+ Area.mutationType + " pixel=" + Area.currPixelOrder;
+			String s = "d=" + d + " dTest=" + dTest + " cnt=" + Area.cntRandomChange + " mutType=" + Area.mutationType
+					+ " pixel=" + Area.currPixelOrder;
 			System.out.println(s);
-			Area.log(s+"\n");
-			//assert false;
+			Area.log(s + "\n");
+			// assert false;
 		}
 	}
 
