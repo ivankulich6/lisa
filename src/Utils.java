@@ -8,32 +8,6 @@ public class Utils {
 		return (int) Math.round(a * rgb + (1 - a) * 255);
 	}
 
-	public static void colorNoAlpha(int rgba[], int rgb[]) {
-		assert rgba[3] == 255;
-		double a = (double) rgba[3] / (double) 255;
-		for (int j = 0; j < 3; j++) {
-			rgb[j] = (int) Math.round(a * rgba[j] + (1 - a) * 255);
-		}
-		return;
-	}
-
-	public static void colorNoAlpha(float rgba[], int rgb[]) {
-		assert Math.abs(rgba[3] - 255) < 1.e-5;
-		float a = rgba[3] / 255;
-		for (int j = 0; j < 3; j++) {
-			rgb[j] = Math.round(a * rgba[j] + (1 - a) * 255);
-		}
-		return;
-	}
-
-	public static void colorNoAlpha(float rgba[], float rgb[]) {
-		float a = rgba[3] / 255;
-		for (int j = 0; j < 3; j++) {
-			rgb[j] = a * rgba[j] + (1 - a) * 255;
-		}
-		return;
-	}
-
 	public static void getPixel(int pixel, int[] res) {
 		int c1 = (int) pixel & 0xff; // b
 		int c2 = (int) pixel >> 8 & 0xff; // g

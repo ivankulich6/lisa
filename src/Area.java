@@ -1,18 +1,14 @@
 import java.awt.Color;
 import java.awt.Graphics;
-import java.awt.List;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.LinkedList;
 import java.util.Random;
 
 public class Area {
-	// maintain array shapes
-	public static final boolean useShapesArray = true;
 
 	public int width;
 	public int height;
@@ -42,7 +38,7 @@ public class Area {
 		int order;
 		// shape color components r, g, b and alpha transparency, scaled in <0,
 		// 255>
-		float rgba[];
+		double rgba[];
 		// shape geometry vertices (e.g. 3 points for triangel)
 		int points[][];
 		// helper array - shape pixel indices in compressed form
@@ -112,7 +108,9 @@ public class Area {
 	public void setTargetRgb(int[][] rgb) {
 		assert pixels.length == rgb.length;
 		for (int j = 0; j < width * height; j++) {
-			pixels[j].targetRgb = rgb[j];
+			for (int k = 0; k < 3; k++) {
+				pixels[j].targetRgb[k] = (1 / (double) 255) * rgb[j][k];
+			}
 		}
 		addeDiff = diff();
 		diff = penaltyShape(addeDiff, pointsCount);
@@ -157,7 +155,7 @@ public class Area {
 
 	private int[] initIndexInNew() {
 		int[] iter = { shapeRange.yMin, shapeRange.xMin - 1, width * shapeRange.yMin + shapeRange.xMin - 1 };
-		if(shapeRange.yMin == shapeRange.yMax){
+		if (shapeRange.yMin == shapeRange.yMax) {
 			iter[1] = shapeRange.xMax;
 		}
 		return iter;
@@ -377,7 +375,7 @@ public class Area {
 		}
 	}
 
-	private boolean sameRgba(float[] rgba1, float[] rgba2) {
+	private boolean sameRgba(double[] rgba1, double[] rgba2) {
 		for (int j = 0; j < 4; j++) {
 			if (Math.abs(rgba1[j] - rgba2[j]) > 1.e-5) {
 				return false;
@@ -387,7 +385,7 @@ public class Area {
 	}
 
 	private double penalty(int pointsCount) {
-		return pointsCount * pointsCount / 10000000000.0;
+		return (double) pointsCount * (double) pointsCount / (double) 10000000000.0;
 	}
 
 	private double penaltyRgb(double addeDiff) {
@@ -417,12 +415,12 @@ public class Area {
 	private Shape getRandomShape() {
 		Shape shape = new Shape();
 		shape.order = gOrder++;
-		float[] color = new float[4];
+		double[] color = new double[4];
 		for (int i = 0; i < 3; i++) {
-			color[i] = (1/(float)255) * randg.nextInt(256);
+			color[i] = (1 / (double) 255) * randg.nextInt(256);
 		}
 		// color[3] = alpha, from 1 to 255; (0 is useless)
-		color[3] =  (1/(float)255) * (randg.nextInt(255) + 1);
+		color[3] = (1 / (double) 255) * (randg.nextInt(255) + 1);
 		shape.rgba = color;
 		int[][] points = new int[3][];
 		for (int i = 0; i < 3; i++) {
@@ -438,7 +436,7 @@ public class Area {
 		Shape res = new Shape();
 		res.order = shape.order;
 		if (shape.rgba != null) {
-			res.rgba = new float[shape.rgba.length];
+			res.rgba = new double[shape.rgba.length];
 			System.arraycopy(shape.rgba, 0, res.rgba, 0, shape.rgba.length);
 		}
 		if (shape.points != null) {
@@ -505,14 +503,9 @@ public class Area {
 				mutationType = "0";
 				return;
 			}
-			if (useShapesArray) {
-				int index = randg.nextInt(shapesCount);
-				mutation.oldShape = shapes[index];
-				mutation.index = index;
-			} else {
-				mutation.oldShape = selectPixelsRandomShape();
-				mutation.index = -1;
-			}
+			int index = randg.nextInt(shapesCount);
+			mutation.oldShape = shapes[index];
+			mutation.index = index;
 			mutation.shapesCount = shapesCount - 1;
 			mutation.pointsCount = pointsCount - (mutation.oldShape.points.length);
 			mutationType = "R(" + mutation.oldShape.order + ")";
@@ -525,26 +518,21 @@ public class Area {
 			Shape oldShape;
 			Shape newShape;
 			int index;
-			if (useShapesArray) {
-				index = randg.nextInt(shapesCount);
-				oldShape = shapes[index];
-			} else {
-				index = -1;
-				oldShape = selectPixelsRandomShape();
-			}
+			index = randg.nextInt(shapesCount);
+			oldShape = shapes[index];
 			newShape = copy(oldShape);
 			int inner = randg.nextInt(newShape.points.length + 1);
 			int inninner;
 			if (inner == 0) { // rgba
 				inninner = randg.nextInt(4);
 				int move = randg.nextInt(20) - 10;
-				float[] tmp = newShape.rgba;
+				double[] tmp = newShape.rgba;
 				tmp[inninner] += move;
 				// if messing with color, trim outputs to 0, 255
 				tmp[inninner] = Math.min(tmp[inninner], 255);
 				tmp[inninner] = Math.max(tmp[inninner], 0);
-				tmp[inninner] = (1/(float)255) * tmp[inninner];
-				
+				tmp[inninner] = (1 / (double) 255) * tmp[inninner];
+
 			} else {
 				inninner = randg.nextInt(newShape.points[inner - 1].length);
 				int move = randg.nextInt(20) - 10;
@@ -593,14 +581,6 @@ public class Area {
 
 	public boolean doRandomChange() {
 
-		// NOTE: useShapesArray = true ... shapes is updated after mutation
-		// is accepted and used for random selection of shape.
-		// useShapesArray = false ... maintenance of shapes is removed
-		// completely, random selection of shape is performed on shapes stored
-		// in pixels. Execution time in this case is longer (about 1.7 times),
-		// probably because shape selection from trees in pixels is more
-		// expensive than simple selection from array.
-
 		cntRandomChange++;
 		temp = Math.max(temp, Math.pow(10, -10));
 		getRandomMutation();
@@ -615,10 +595,8 @@ public class Area {
 				temp *= 0.5;
 			}
 			replaceShape(mutation.oldShape, mutation.newShape);
-			if (useShapesArray) {
-				shapes = alterShapes(mutation.index, mutation.oldShape, mutation.newShape);
-				assert shapes.length == mutation.shapesCount;
-			}
+			shapes = alterShapes(mutation.index, mutation.oldShape, mutation.newShape);
+			assert shapes.length == mutation.shapesCount;
 			shapesCount = mutation.shapesCount;
 			pointsCount = mutation.pointsCount;
 			addeDiff = newAddeDiff;
@@ -657,11 +635,11 @@ public class Area {
 		return pc;
 	}
 
-	public void rgbRegen() {
-		for (int j = 0; j < height * width; j++) {
-			pixels[j].rgbRegen();
-		}
-	}
+	// public void rgbRegen() {
+	// for (int j = 0; j < height * width; j++) {
+	// pixels[j].rgbRegen();
+	// }
+	// }
 
 	public ShapeRange getShapeRange(Shape shape) {
 		ShapeRange range = new ShapeRange();
@@ -679,8 +657,9 @@ public class Area {
 		return range;
 	}
 
-	public static int[] getRgbaInt(float rgba[]) {
-		int rgbaInt[] = { Math.round(255 *rgba[0]), Math.round(255 *rgba[1]), Math.round(255 * rgba[2]), Math.round(255 * rgba[3]) };
+	public static int[] getRgbaInt(double rgba[]) {
+		int rgbaInt[] = { (int) Math.round(255 * rgba[0]), (int) Math.round(255 * rgba[1]),
+				(int) Math.round(255 * rgba[2]), (int) Math.round(255 * rgba[3]) };
 		return rgbaInt;
 	}
 
@@ -706,13 +685,13 @@ public class Area {
 			}
 		}
 	}
-	
+
 	public double getAvgNumOfShapesPerPixel() {
 		double totalShapes = 0;
 		for (int j = 0; j < height * width; j++) {
 			totalShapes += pixels[j].shapes.size();
 		}
-		return totalShapes/(height * width);
+		return totalShapes / (height * width);
 	}
 
 	public static boolean doLog = false;
@@ -751,6 +730,4 @@ public class Area {
 		}
 	}
 
-
 }
-

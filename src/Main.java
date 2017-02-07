@@ -126,10 +126,11 @@ public class Main {
 				// assert Math.abs(area.diff - diffAll) < 1.e-1;
 				// Diff: incremental diff, own merging of transparent colors,
 
-				// if (cnt >= 5000) {
-				// 	gWindowClosing = true;
-				// }
 			}
+			if (cnt >= 5000) {
+				gWindowClosing = true;
+			}
+
 			if (gWindowClosing) {
 				long stopTime = System.currentTimeMillis();
 				long elapsedTime = stopTime - startTime;
@@ -138,13 +139,10 @@ public class Main {
 				Area.Shape[] exShapes = area.extractShapes();
 				assert exShapes.length == area.shapesCount;
 				assert area.recalcPointsCount(exShapes) == area.pointsCount;
-				if (!Area.useShapesArray) {
-					area.shapes = exShapes;
-				}
 				System.out.println("Diff=" + area.diff + ", cnt=" + cnt + ", polygons=" + area.shapesCount + ", temp="
 						+ area.temp);
 				shapesImg = drawShapes(area.shapes);
-				// drawing.draw(shapesImg);
+				drawing.draw(shapesImg);
 				double diffAll = area.diffTest();
 				double diff2 = area.diffTest(addeDiff(shapesImg, target));
 				System.out.println("DiffAll=" + diffAll + " Diff2=" + diff2 + " AvgPolyPerPixel="
