@@ -13,7 +13,6 @@ public class Utils {
 		int c2 = (int) pixel >> 8 & 0xff; // g
 		int c3 = (int) pixel >> 16 & 0xff; // r
 		int c0 = (int) pixel >> 24 & 0xff; // alpha
-		// System.out.println("raw: " + c0 + " " + c1 + " " + c2 + " " + c3);
 		res[0] = colorNoAlpha(c3, c0);
 		res[1] = colorNoAlpha(c2, c0);
 		res[2] = colorNoAlpha(c1, c0);

@@ -36,8 +36,8 @@ public class Area {
 		// 'order' serves as unique, persistent key of shape.
 		// Shapes in array Area.shapes are kept sorted by 'order'.
 		int order;
-		// shape color components r, g, b and alpha transparency, scaled in <0,
-		// 255>
+		// shape color components r, g, b and alpha transparency, scaled in
+		// <0,1>
 		double rgba[];
 		// shape geometry vertices (e.g. 3 points for triangel)
 		int points[][];
