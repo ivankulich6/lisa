@@ -1,12 +1,4 @@
 public class AreaPixel {
-	/*
-	 * Testing methods of pre-finding difference increment: ITERATE - iterate
-	 * shapes and apply convexCombine PUTREM - do change in shapes, use reduced
-	 * value, revert change in shapes DEFAULT - use reduced from-to value
-	 */
-	public static final boolean DIFF_INC_IF_ITERATE = true;
-	public static final boolean DIFF_INC_IF_PUTREM = false;
-	public static final boolean RBTREE_WITHOUT_REDUCER = true;
 
 	public static final double BKGCOLOR[] = { 1, 1, 1, 1 };
 
@@ -15,7 +7,15 @@ public class AreaPixel {
 	public double[] newRgb;
 	public double[] targetRgb;
 
-	AreaPixel() {
+	AreaPixel(boolean withReducer) {
+
+		initShapes(withReducer);
+		rgb = new double[] { 1, 1, 1, 1 };
+		newRgb = new double[4];
+		targetRgb = new double[3];
+	}
+
+	public void initShapes(boolean withReducer) {
 
 		Reducer<Area.Shape> reducer = new Reducer<Area.Shape>() {
 			@Override
@@ -27,45 +27,12 @@ public class AreaPixel {
 			}
 		};
 
-		if (!RBTREE_WITHOUT_REDUCER) {
+		if (withReducer) {
 			shapes = new RbTree<Integer, Area.Shape>(null, reducer);
 		} else {
 			shapes = new RbTree<Integer, Area.Shape>();
 		}
 
-		rgb = new double[] { 1, 1, 1 };
-		newRgb = new double[4];
-		targetRgb = new double[3];
-	}
-
-	public double diffIncIfAdded(Area.Shape shape) {
-		if (DIFF_INC_IF_ITERATE) {
-			return diffIncIfAdded_ITERATE(shape);
-		} else if (DIFF_INC_IF_PUTREM) {
-			return diffIncIfAdded_PUTREM(shape);
-		} else {
-			return diffIncIfAdded_RFT(shape);
-		}
-	}
-
-	public double diffIncIfRemoved(Area.Shape shape) {
-		if (DIFF_INC_IF_ITERATE) {
-			return diffIncIfRemoved_ITERATE(shape);
-		} else if (DIFF_INC_IF_PUTREM) {
-			return diffIncIfRemoved_PUTREM(shape);
-		} else {
-			return diffIncIfRemoved_RFT(shape);
-		}
-	}
-
-	public double diffIncIfReplaced(Area.Shape oldShape, Area.Shape newShape, int intype, boolean sameRgba) {
-		if (DIFF_INC_IF_ITERATE) {
-			return diffIncIfReplaced_ITERATE(oldShape, newShape, intype, sameRgba);
-		} else if (DIFF_INC_IF_PUTREM) {
-			return diffIncIfReplaced_PUTREM(oldShape, newShape, intype, sameRgba);
-		} else {
-			return diffIncIfReplaced_RFT(oldShape, newShape, intype, sameRgba);
-		}
 	}
 
 	public double diffIncIfAdded_ITERATE(Area.Shape shape) {
@@ -285,6 +252,18 @@ public class AreaPixel {
 			shapes.put(orderNew, newShape);
 		}
 		useNewRgb();
+	}
+
+	public void rgbRegen(double[] rgba) {
+		System.arraycopy(BKGCOLOR, 0, rgba, 0, 4);
+		RbTree<Integer, Area.Shape>.EntryIterator it = shapes.new EntryIterator(shapes.firstEntry());
+		while (it.hasNext()) {
+			convexCombine(it.next().getValue().rgba, rgba, rgba);
+		}
+	}
+
+	public void rgbRegen() {
+		rgbRegen(this.rgb);
 	}
 
 	private void useNewRgb() {

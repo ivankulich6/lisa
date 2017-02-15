@@ -6,10 +6,37 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
 import java.util.Random;
 
 public class Area {
+	
+	/*
+	 * Testing methods of pre-finding difference increment: ITERATE - iterate
+	 * shapes and apply convexCombine PUTREM - do change in shapes, use reduced
+	 * value, revert change in shapes DEFAULT - use reduced from-to value
+	 */
+	public static enum DiffIncIfMethod {
+	    ITERATE("ITERATE"),
+	    RFT("RFT"),
+	    PUTREM("PUTREM"),
+	    PUTREM_ITERATE("PUTREM_ITERATE");
 
+	    private final String name;       
+	    private DiffIncIfMethod(String s) {
+	        name = s;
+	    }
+	    public String toString() {
+	        return this.name;
+	     }
+	}
+
+	public String targetPath;
+	BufferedImage target;
 	public int width;
 	public int height;
 	private AreaPixel[] pixels;
@@ -79,30 +106,36 @@ public class Area {
 
 	Area() {
 	}
-
-	Area(int width, int height) {
-		assert (width > 0 && height > 0);
-		this.width = width;
-		this.height = height;
+	
+	Area(boolean init) {
+		if(init){
+			shapes = new Shape[0];
+			shapesCount = 0;
+			pointsCount = 0;
+			gOrder = 0;
+			mutation = new Mutation();
+			temp = 1;
+			randg = new Random();
+			cntRandomChange = 0;
+		}
+	}
+	
+	public void setTarget(String targetPath, boolean withReducer) throws IOException {
+		this.targetPath = targetPath;
+		target = Utils.readImage(targetPath);
+		width = target.getWidth();
+		height = target.getHeight();
 		pixels = new AreaPixel[width * height];
 		for (int j = 0; j < height * width; j++) {
-			pixels[j] = new AreaPixel();
+			pixels[j] = new AreaPixel(withReducer);
 		}
-		shapes = new Shape[0];
-		shapesCount = 0;
-		pointsCount = 0;
 		tempBufferedImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-		gOrder = 0;
-		mutation = new Mutation();
 		mutaPixels = new MutaPixel[width * height];
 		for (int j = 0; j < height * width; j++) {
 			mutaPixels[j] = new MutaPixel();
 		}
 		mutaPixelsWork = new int[2 * width * height];
-		temp = 1;
-		randg = new Random(6543210);
-		// randg = new Random();
-		cntRandomChange = 0;
+		setTargetRgb(Utils.getPixelsRgb(target));
 	}
 
 	public void setTargetRgb(int[][] rgb) {
@@ -295,12 +328,26 @@ public class Area {
 		}
 	}
 
-	public double diffIncIfAdded(Shape newShape) {
+	public double diffIncIfAdded(Shape newShape, DiffIncIfMethod method) {
 		double diffOfDiff = 0;
 		findMutaPixelsNewShape(newShape);
-		for (int j = 0; j < mutaPixelsCount; j++) {
-			currPixelOrder = j; // for debug
-			diffOfDiff += pixels[mutaPixels[j].index].diffIncIfAdded(newShape);
+		if(method == DiffIncIfMethod.ITERATE){
+			for (int j = 0; j < mutaPixelsCount; j++) {
+				currPixelOrder = j; // for debug
+				diffOfDiff += pixels[mutaPixels[j].index].diffIncIfAdded_ITERATE(newShape);
+			}
+		}
+		else if(method == DiffIncIfMethod.RFT){
+			for (int j = 0; j < mutaPixelsCount; j++) {
+				currPixelOrder = j; // for debug
+				diffOfDiff += pixels[mutaPixels[j].index].diffIncIfAdded_RFT(newShape);
+			}
+		}
+		else if(method == DiffIncIfMethod.PUTREM){
+			for (int j = 0; j < mutaPixelsCount; j++) {
+				currPixelOrder = j; // for debug
+				diffOfDiff += pixels[mutaPixels[j].index].diffIncIfAdded_PUTREM(newShape);
+			}
 		}
 		return diffOfDiff;
 	}
@@ -312,13 +359,28 @@ public class Area {
 		return;
 	}
 
-	public double diffIncIfRemoved(Shape oldShape) {
+	public double diffIncIfRemoved(Shape oldShape, DiffIncIfMethod method) {
 		double diffOfDiff = 0;
 		findMutaPixelsOldShape(oldShape);
-		for (int j = 0; j < mutaPixelsCount; j++) {
-			currPixelOrder = j; // for debug
-			diffOfDiff += pixels[mutaPixels[j].index].diffIncIfRemoved(oldShape);
+		if(method == DiffIncIfMethod.ITERATE){
+			for (int j = 0; j < mutaPixelsCount; j++) {
+				currPixelOrder = j; // for debug
+				diffOfDiff += pixels[mutaPixels[j].index].diffIncIfRemoved_ITERATE(oldShape);
+			}
 		}
+		else if(method == DiffIncIfMethod.RFT){
+			for (int j = 0; j < mutaPixelsCount; j++) {
+				currPixelOrder = j; // for debug
+				diffOfDiff += pixels[mutaPixels[j].index].diffIncIfRemoved_RFT(oldShape);
+			}
+		}
+		else if(method == DiffIncIfMethod.PUTREM){
+			for (int j = 0; j < mutaPixelsCount; j++) {
+				currPixelOrder = j; // for debug
+				diffOfDiff += pixels[mutaPixels[j].index].diffIncIfRemoved_PUTREM(oldShape);
+			}
+		}
+
 		return diffOfDiff;
 	}
 
@@ -329,23 +391,39 @@ public class Area {
 		return;
 	}
 
-	public double diffIncIfReplaced(Shape oldShape, Shape newShape) {
+	public double diffIncIfReplaced(Shape oldShape, Shape newShape, DiffIncIfMethod method) {
 		if (oldShape == null && newShape == null) {
 			return 0;
 		}
 		if (oldShape == null) {
-			return diffIncIfAdded(newShape);
+			return diffIncIfAdded(newShape, method);
 		} else if (newShape == null) {
-			return diffIncIfRemoved(oldShape);
+			return diffIncIfRemoved(oldShape, method);
 		} else {
 			double diffOfDiff = 0;
 			boolean sameRgba = sameRgba(newShape.rgba, oldShape.rgba);
 			MutaPixel mp;
 			findMutaPixelsOldNewShape(oldShape, newShape);
-			for (int j = 0; j < mutaPixelsCount; j++) {
-				mp = mutaPixels[j];
-				currPixelOrder = j; // for debug
-				diffOfDiff += pixels[mp.index].diffIncIfReplaced(oldShape, newShape, mp.intype, sameRgba);
+			if(method == DiffIncIfMethod.ITERATE){
+				for (int j = 0; j < mutaPixelsCount; j++) {
+					mp = mutaPixels[j];
+					currPixelOrder = j; // for debug
+					diffOfDiff += pixels[mp.index].diffIncIfReplaced_ITERATE(oldShape, newShape, mp.intype, sameRgba);
+				}
+			}
+			else if(method == DiffIncIfMethod.RFT){
+				for (int j = 0; j < mutaPixelsCount; j++) {
+					mp = mutaPixels[j];
+					currPixelOrder = j; // for debug
+					diffOfDiff += pixels[mp.index].diffIncIfReplaced_RFT(oldShape, newShape, mp.intype, sameRgba);
+				}
+			}
+			else if(method == DiffIncIfMethod.PUTREM){
+				for (int j = 0; j < mutaPixelsCount; j++) {
+					mp = mutaPixels[j];
+					currPixelOrder = j; // for debug
+					diffOfDiff += pixels[mp.index].diffIncIfReplaced_PUTREM(oldShape, newShape, mp.intype, sameRgba);
+				}
 			}
 			return diffOfDiff;
 
@@ -456,36 +534,6 @@ public class Area {
 		return res;
 	}
 
-	private Shape selectPixelsRandomShape() {
-		int index = randg.nextInt(width * height);
-		int nPixShapes = pixels[index].shapes.size();
-		if (nPixShapes == 0) {
-			int index0 = index;
-			while (nPixShapes == 0) {
-				++index;
-				if (index >= width * height) {
-					index = 0;
-				}
-				if (index == index0) {
-					assert shapesCount == 0;
-					mutationType = "0";
-					return null;
-				}
-				nPixShapes = pixels[index].shapes.size();
-			}
-		}
-		int index2 = randg.nextInt(nPixShapes);
-		int j = 0;
-		RbTree<Integer, Shape>.EntryIterator it = pixels[index].shapes.new EntryIterator(
-				pixels[index].shapes.firstEntry());
-		while (it.hasNext()) {
-			if (j++ >= index2) {
-				return it.next().getValue();
-			}
-		}
-		return null;
-	}
-
 	private void getRandomMutation() {
 		int opcode = randg.nextInt(100);
 		mutation.oldShape = null;
@@ -579,12 +627,12 @@ public class Area {
 		}
 	}
 
-	public boolean doRandomChange() {
+	public boolean doRandomChange(DiffIncIfMethod method) {
 
 		cntRandomChange++;
 		temp = Math.max(temp, Math.pow(10, -10));
 		getRandomMutation();
-		double newAddeDiff = addeDiff + diffIncIfReplaced(mutation.oldShape, mutation.newShape);
+		double newAddeDiff = addeDiff + diffIncIfReplaced(mutation.oldShape, mutation.newShape, method);
 		double newDiff = penaltyShape(newAddeDiff, mutation.pointsCount);
 		// newDiff < d -> vzdy true
 		// newDiff - d = temp -> akceptujem so sancou e^-1
@@ -635,12 +683,6 @@ public class Area {
 		return pc;
 	}
 
-	// public void rgbRegen() {
-	// for (int j = 0; j < height * width; j++) {
-	// pixels[j].rgbRegen();
-	// }
-	// }
-
 	public ShapeRange getShapeRange(Shape shape) {
 		ShapeRange range = new ShapeRange();
 		range.xMin = range.yMin = Integer.MAX_VALUE;
@@ -666,13 +708,27 @@ public class Area {
 	public int getRgbInt(int x, int y) {
 		return pixels[y * width + x].getRgbInt();
 	}
+	
+	public void refreshPixelsByShapes(boolean withReducer){
+		for (int j = 0; j < width * height; j++) {
+			pixels[j].initShapes(withReducer);
+		}
+		for(int j = 0; j < shapes.length; j++){
+			findMutaPixelsNewShape(shapes[j]);
+			addShape(shapes[j]);
+			saveShapePixels(shapes[j]);
+		}
+		for (int j = 0; j < width * height; j++) {
+			pixels[j].rgbRegen();
+		}
+	}
 
-	public void saveShapes(String sFile) {
+	public void shapesToFile(String sFile) {
 		BufferedWriter writer = null;
 		try {
 			File outFile = new File(sFile);
-			StringBuilder sb = Utils.ShapesToSb(width, height, shapes);
-			System.out.println(outFile.getCanonicalPath());
+			StringBuilder sb = Utils.ShapesToSb(this);
+			//System.out.println(outFile.getCanonicalPath());
 			writer = new BufferedWriter(new FileWriter(outFile));
 			writer.write(sb.toString());
 			writer.close();
@@ -682,8 +738,101 @@ public class Area {
 			try {
 				writer.close();
 			} catch (Exception e) {
+				e.printStackTrace();
 			}
 		}
+	}
+
+	public void setFromFile(String sFile, boolean withReducer) {
+		Path wiki_path = Paths.get(sFile);
+		Charset charset = Charset.forName("UTF-8");
+		List<String> lines = null;
+		String targetPath = null;
+		int dataWidth = -1;
+		int dataHeight = -1;
+		int shapesCount = -1;
+		int maxOrder = -1;
+		int dataPointsCount = 0;
+		double shapeData[][][] = null;
+		int nLine = 0;
+		int currIndex = 0;
+		String errTitle = "Error reading shapes: ";
+		try {
+			lines = Files.readAllLines(wiki_path, charset);
+			for (String line : lines) {
+				++nLine;
+				String keyVal[] = Utils.decodeKeyVal(line);
+				if (keyVal[0].equals("TargetPath")) {
+					targetPath = keyVal[1];
+				} else if (keyVal[0].equals("Width")) {
+					dataWidth = Integer.parseInt(keyVal[1]);
+				} else if (keyVal[0].equals("Height")) {
+					dataHeight = Integer.parseInt(keyVal[1]);
+				} else if (keyVal[0].equals("ShapesCount")) {
+					shapesCount = Integer.parseInt(keyVal[1]);
+					shapeData = new double[shapesCount][][];
+				} else if (keyVal[0].substring(0, 6).equals("Shape_")) {
+					assert shapesCount > 0 : errTitle + "Invalid or missing ShapesCount before line " + nLine;
+					int index = Integer.parseInt(keyVal[0].substring(6));
+					assert index == currIndex && shapesCount > 0 && index < shapesCount : errTitle
+							+ "Invalid sequence.";
+					currIndex++;
+					shapeData[index] = Utils.decodeShapeData(keyVal[1]);
+					assert null != shapeData[index] : errTitle + "Invalid shape format, sequence =" + index;
+				} else {
+					assert false : errTitle + "Invalid format in line " + nLine;
+				}
+			}
+			assert targetPath != null : errTitle + "Missing TargetPath.";
+			assert dataWidth > 0 : errTitle + "Invalid Width.";
+			assert dataHeight > 0 : errTitle + "Invalid Height.";
+			assert currIndex == shapesCount : errTitle + "Missing shape after line " + nLine;
+			setTarget(targetPath, withReducer);
+			assert width == dataWidth && height == dataHeight
+				: errTitle + "Shape/Target dimemsions mismatch" + nLine;	
+			
+			this.shapesCount = shapesCount;
+			shapes = new Shape[shapesCount];
+			for(int j = 0; j< shapesCount; j++){
+				double shapeData1[][] = shapeData[j];
+				assert shapeData1.length >= 4 : errTitle + "Missing data in shape " + j;
+				assert shapeData1[0].length == 5 : errTitle + "Invalid format of shape " + j;
+				Shape shape = new Shape();
+				shapes[j] = shape;
+				shape.rgba = new double[4];
+				for(int k = 0; k < 4; k++){
+					double val = shapeData1[0][k];
+					assert val >= 0 && val <= 1 : errTitle + "Color out of range in shape " + j;
+					shape.rgba[k] = val;
+				}
+				shape.order = (int)Math.round(shapeData1[0][4]);
+				if(shape.order > maxOrder){
+					maxOrder = shape.order;
+				}
+				int nPoints =  shapeData1.length - 1;
+				dataPointsCount += nPoints;
+				shape.points = new int[nPoints][];
+				for(int k = 0; k < nPoints; k++){
+					assert shapeData1[k+1].length == 2 : errTitle + "Invalid points data in shape " + j;
+					shape.points[k] = new int[2];
+					for(int l = 0; l < 2; l++){
+						int coord = (int)Math.round(shapeData1[k+1][l]);
+						assert coord >=0 && ((l == 0 && coord <= width) || (l == 1 && coord <= height))
+							: errTitle + "Point out of range in shape " + j;	
+						shape.points[k][l] = coord;
+					}
+				}
+				
+			}
+			refreshPixelsByShapes(withReducer);
+			gOrder = ++maxOrder;
+			pointsCount = dataPointsCount;
+			diff = diffTest();
+
+		} catch (IOException e) {
+			System.out.println(e);
+		}
+
 	}
 
 	public double getAvgNumOfShapesPerPixel() {
@@ -694,40 +843,5 @@ public class Area {
 		return totalShapes / (height * width);
 	}
 
-	public static boolean doLog = false;
-
-	public static void log(String text) {
-		if (doLog) {
-			try {
-				BufferedWriter writer = new BufferedWriter(new FileWriter("testdata/log.txt", true));
-				writer.append(text);
-				writer.close();
-
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
-
-	}
-
-	public static void log(StringBuilder sb) {
-		log(sb.toString());
-	}
-
-	public static void logNewline() {
-		log("\n");
-	}
-
-	public static void logClean() {
-		try {
-			BufferedWriter writer = new BufferedWriter(new FileWriter("testdata/log.txt"));
-			writer.close();
-
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-	}
 
 }
