@@ -114,11 +114,8 @@ public class Utils {
 	}
 
 	private static StringBuilder ShapeToSb(Area.Shape shape) {
-		double color[] = new double[5];
-		System.arraycopy(shape.rgba, 0, color, 0, 4);
-		color[4] = shape.order;
 		StringBuilder sb = new StringBuilder("[");
-		sb.append(arrayToSb(color));
+		sb.append(arrayToSb(shape.rgba));
 		for (int j = 0; j < shape.points.length; j++) {
 			sb.append(", ").append(arrayToSb(shape.points[j]));
 		}
@@ -131,6 +128,11 @@ public class Utils {
 		sb.append("TargetPath: ").append(area.targetPath).append("\n");
 		sb.append("Width: ").append(area.width).append("\n");
 		sb.append("Height: ").append(area.height).append("\n");
+		sb.append("mutationsTotal: ").append(area.mutationsTotal).append("\n");
+		sb.append("mutationsAccepted: ").append(area.mutationsAccepted).append("\n");
+		sb.append("mutationsAdd: ").append(area.mutationsAdd).append("\n");
+		sb.append("mutationsRemove: ").append(area.mutationsRemove).append("\n");
+		sb.append("mutationsReplace: ").append(area.mutationsReplace).append("\n");
 		sb.append("ShapesCount: ").append(area.shapes.length).append("\n");
 		for (int i = 0; i < area.shapes.length; i++) {
 			sb.append("Shape_").append(i).append(": ").append(ShapeToSb(area.shapes[i])).append("\n");

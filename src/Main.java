@@ -2,7 +2,6 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
-import java.util.Random;
 
 import javax.swing.JFrame;
 
@@ -32,7 +31,7 @@ public class Main {
 		System.out.println("Hello RbTree");
 		Main p = new Main();
 		p.run();
-		// p.runTests();
+		//p.runTests();
 	}
 
 	public void run() throws IOException {
@@ -40,29 +39,24 @@ public class Main {
 		BufferedImage img;
 
 		Area area = new Area(true);
-		//area.randg = new Random(6543210);
-		boolean withReducer = true;
+		boolean withReducer = false;
 		area.setTarget("women_small.jpg", withReducer);
-		//area.setFromFile("testdata/shapes01.txt", withReducer);
+		//area.setFromFile("testdata/women_small.shapes", withReducer);
 
 		prepareGUI(area.width, area.height);
 		int cnt = 0;
 		int cntSuccess = 0;
 
-		double diffAll0 = area.diffTest();
-		System.out.println("");
-		System.out.println("Diff=" + area.diff + " DiffAll=" + diffAll0 + ", cnt=" + cnt);
-
 		long startTime = System.currentTimeMillis();
 
 		while (true) {
 			cnt++;
-			boolean success = area.doRandomChange(Area.DiffIncIfMethod.RFT);
+			boolean success = area.doRandomChange(Area.DiffIncIfMethod.ITERATE);
 			// System.out.print(area.mutationType);
 			if (success) {
 				System.out.print("+");
 				cntSuccess++;
-				if (cntSuccess % 1 == 0) {
+				if (cnt == 1 || cntSuccess % 10 == 0 || cnt % 100 == 0) {
 					img = Utils.drawArea(area);
 					drawing.draw(img);
 				}
@@ -78,9 +72,9 @@ public class Main {
 				// Diff: incremental diff, own merging of transparent colors,
 
 			}
-			if (cnt >= 5000) {
-				gWindowClosing = true;
-			}
+//			if (cnt >= 10000) {
+//				gWindowClosing = true;
+//			}
 
 			if (gWindowClosing) {
 				long stopTime = System.currentTimeMillis();
@@ -100,7 +94,7 @@ public class Main {
 						+ area.getAvgNumOfShapesPerPixel());
 				// Diff2: regenerated whole area diff, merging of transparent
 				// colors by imported Graphics (fillPolygon)
-				area.shapesToFile("testdata/shapes01.txt");
+				area.shapesToFile("testdata/women_small.shapes");
 				System.exit(0);
 				break;
 			}

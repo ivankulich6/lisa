@@ -54,10 +54,16 @@ public class Area {
 	double diff;
 	double temp;
 	Random randg;
+	//mutations counters
+	public int mutationsTotal;
+	public int mutationsAccepted;
+	public int mutationsAdd;
+	public int mutationsRemove;
+	public int mutationsReplace;
 	// debug helpers
 	public static int cntRandomChange;
 	public static int currPixelOrder;
-	public static String mutationType;
+	//public static String mutationType;
 
 	public class Shape {
 		// 'order' serves as unique, persistent key of shape.
@@ -89,6 +95,9 @@ public class Area {
 		int shapesCount = 0;
 		// expected total shapes points count in area after mutation
 		int pointsCount = 0;
+		// 0... no mutation, 1... remove (newShape = null),
+		// 2... add (newShape = null), 3... replace
+		int type;
 	}
 
 	public class MutaPixel {
@@ -116,6 +125,11 @@ public class Area {
 			mutation = new Mutation();
 			temp = 1;
 			randg = new Random();
+			mutationsTotal = 0;
+			mutationsAccepted = 0;
+			mutationsAdd = 0;
+			mutationsRemove = 0;
+			mutationsReplace = 0;
 			cntRandomChange = 0;
 		}
 	}
@@ -544,11 +558,11 @@ public class Area {
 			mutation.newShape = getRandomShape();
 			mutation.shapesCount = shapesCount + 1;
 			mutation.pointsCount = pointsCount + mutation.newShape.points.length;
-			mutationType = "A(" + mutation.newShape.order + ")";
+			mutation.type = 2;
 			return;
 		} else if (opcode < 40) { // remove shape
 			if (shapesCount == 0) {
-				mutationType = "0";
+				mutation.type = 0;
 				return;
 			}
 			int index = randg.nextInt(shapesCount);
@@ -556,11 +570,11 @@ public class Area {
 			mutation.index = index;
 			mutation.shapesCount = shapesCount - 1;
 			mutation.pointsCount = pointsCount - (mutation.oldShape.points.length);
-			mutationType = "R(" + mutation.oldShape.order + ")";
+			mutation.type = 1;
 			return;
 		} else { // modify shape
 			if (shapesCount == 0) {
-				mutationType = "0";
+				mutation.type = 0;
 				return;
 			}
 			Shape oldShape;
@@ -600,7 +614,7 @@ public class Area {
 			mutation.newShape = newShape;
 			mutation.index = index;
 			mutation.pointsCount = pointsCount - oldShape.points.length + newShape.points.length;
-			mutationType = "M(" + mutation.oldShape.order + ")";
+			mutation.type = 3;
 			return;
 		}
 	}
@@ -630,8 +644,13 @@ public class Area {
 	public boolean doRandomChange(DiffIncIfMethod method) {
 
 		cntRandomChange++;
+		mutationsTotal++;
+
 		temp = Math.max(temp, Math.pow(10, -10));
 		getRandomMutation();
+		if(mutation.type == 0){
+			return false;
+		}
 		double newAddeDiff = addeDiff + diffIncIfReplaced(mutation.oldShape, mutation.newShape, method);
 		double newDiff = penaltyShape(newAddeDiff, mutation.pointsCount);
 		// newDiff < d -> vzdy true
@@ -649,6 +668,14 @@ public class Area {
 			pointsCount = mutation.pointsCount;
 			addeDiff = newAddeDiff;
 			diff = newDiff;
+			mutationsAccepted ++;
+			if(mutation.oldShape == null){
+				mutationsAdd ++;
+			}else if(mutation.newShape == null){
+				mutationsRemove ++;
+			}else{
+				mutationsReplace ++;
+			}
 			return true;
 		} else {
 			temp *= 1.002;
@@ -751,12 +778,16 @@ public class Area {
 		int dataWidth = -1;
 		int dataHeight = -1;
 		int shapesCount = -1;
-		int maxOrder = -1;
 		int dataPointsCount = 0;
 		double shapeData[][][] = null;
 		int nLine = 0;
 		int currIndex = 0;
 		String errTitle = "Error reading shapes: ";
+		mutationsTotal = 0;
+		mutationsAccepted = 0;
+		mutationsAdd = 0;
+		mutationsRemove = 0;
+		mutationsReplace = 0;
 		try {
 			lines = Files.readAllLines(wiki_path, charset);
 			for (String line : lines) {
@@ -768,6 +799,16 @@ public class Area {
 					dataWidth = Integer.parseInt(keyVal[1]);
 				} else if (keyVal[0].equals("Height")) {
 					dataHeight = Integer.parseInt(keyVal[1]);
+				} else if (keyVal[0].equals("mutationsTotal")) {
+					mutationsTotal = Integer.parseInt(keyVal[1]);
+				} else if (keyVal[0].equals("mutationsAccepted")) {
+					mutationsAccepted = Integer.parseInt(keyVal[1]);
+				} else if (keyVal[0].equals("mutationsAdd")) {
+					mutationsAdd = Integer.parseInt(keyVal[1]);
+				} else if (keyVal[0].equals("mutationsRemove")) {
+					mutationsRemove = Integer.parseInt(keyVal[1]);
+				} else if (keyVal[0].equals("mutationsReplace")) {
+					mutationsReplace = Integer.parseInt(keyVal[1]);
 				} else if (keyVal[0].equals("ShapesCount")) {
 					shapesCount = Integer.parseInt(keyVal[1]);
 					shapeData = new double[shapesCount][][];
@@ -796,7 +837,7 @@ public class Area {
 			for(int j = 0; j< shapesCount; j++){
 				double shapeData1[][] = shapeData[j];
 				assert shapeData1.length >= 4 : errTitle + "Missing data in shape " + j;
-				assert shapeData1[0].length == 5 : errTitle + "Invalid format of shape " + j;
+				assert shapeData1[0].length == 4 : errTitle + "Invalid format of shape " + j;
 				Shape shape = new Shape();
 				shapes[j] = shape;
 				shape.rgba = new double[4];
@@ -805,10 +846,7 @@ public class Area {
 					assert val >= 0 && val <= 1 : errTitle + "Color out of range in shape " + j;
 					shape.rgba[k] = val;
 				}
-				shape.order = (int)Math.round(shapeData1[0][4]);
-				if(shape.order > maxOrder){
-					maxOrder = shape.order;
-				}
+				shape.order = j;
 				int nPoints =  shapeData1.length - 1;
 				dataPointsCount += nPoints;
 				shape.points = new int[nPoints][];
@@ -825,9 +863,10 @@ public class Area {
 				
 			}
 			refreshPixelsByShapes(withReducer);
-			gOrder = ++maxOrder;
+			gOrder = shapesCount;
 			pointsCount = dataPointsCount;
-			diff = diffTest();
+			addeDiff = diff();
+			diff = diffTest(addeDiff);
 
 		} catch (IOException e) {
 			System.out.println(e);
