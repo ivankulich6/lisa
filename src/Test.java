@@ -52,7 +52,7 @@ public class Test {
 				inds.remove(iAss);
 			}
 		}
-		
+
 		System.out.println("Test ccSpeedAndAccuracy: start");
 		long startTime = System.currentTimeMillis();
 
@@ -91,8 +91,8 @@ public class Test {
 		long elapsedTime = stopTime - startTime;
 
 		Utils.setNewLog("testdata/log_ccSpeedAndAccuracyTest.txt");
-		Utils.log2("double: elapsedTime= " + elapsedTime + " milliseconds" + " avg=" + Utils.arrayToSb(dAvg)
-				+ " dist=" + dDist);
+		Utils.log2("double: elapsedTime= " + elapsedTime + " milliseconds" + " avg=" + Utils.arrayToSb(dAvg) + " dist="
+				+ dDist);
 
 		startTime = System.currentTimeMillis();
 
@@ -129,8 +129,8 @@ public class Test {
 
 		stopTime = System.currentTimeMillis();
 		elapsedTime = stopTime - startTime;
-		Utils.log2("float: elapsedTime= " + elapsedTime + " milliseconds" + " avg=" + Utils.arrayToSb(fAvg)
-				+ " dist=" + fDist);
+		Utils.log2("float: elapsedTime= " + elapsedTime + " milliseconds" + " avg=" + Utils.arrayToSb(fAvg) + " dist="
+				+ fDist);
 
 	}
 
@@ -178,6 +178,7 @@ public class Test {
 		BufferedImage shapesImg;
 		Area area = new Area(true);
 		area.randg = new Random(6543210);
+		area.penaltyPointsCountParam = 10000000000.0;
 		area.setTarget("women_small.jpg", withReducer);
 		int cnt = 0;
 		String sMsg = "Starting test diffIncIfMethodsCompareTest1, method = " + method.toString();
@@ -192,7 +193,7 @@ public class Test {
 		StringBuilder sb = new StringBuilder();
 
 		sb.append("\nelapsedTime = " + elapsedTime + " milliseconds");
-		Area.Shape[] exShapes = area.extractShapes();
+		Shape[] exShapes = area.extractShapes();
 		assert exShapes.length == area.shapesCount;
 		assert area.recalcPointsCount(exShapes) == area.pointsCount;
 		sb.append("\nDiff=" + area.diff + ", cnt=" + cnt + ", polygons=" + area.shapesCount + ", temp=" + area.temp);
@@ -208,12 +209,13 @@ public class Test {
 		System.out.println("");
 		sb.insert(0, sMsg).append("\n\n");
 		Utils.log(sb);
-		//the next depends on implementation of getRandomShape, getRandomMutation, penaltyShape
+		// the next depends on implementation of getRandomShape,
+		// getRandomMutation, penaltyShape
 		assert area.shapesCount == 105;
-		assert Math.abs(area.diff - (double)0.4846866435500602) < (double)1.e-15;
-		assert Math.abs(diffAll - (double)0.48468664355005703) < (double)1.e-15;
-		assert Math.abs(diff2 - (double)0.4844956741340939) < (double)1.e-15;
-		assert Math.abs(avgPolyPerPixel - (double)8.236) < (double)1.e-15;
+		assert Math.abs(area.diff - (double) 0.4846866435500602) < (double) 1.e-15;
+		assert Math.abs(diffAll - (double) 0.48468664355005703) < (double) 1.e-15;
+		assert Math.abs(diff2 - (double) 0.4844956741340939) < (double) 1.e-15;
+		assert Math.abs(avgPolyPerPixel - (double) 8.236) < (double) 1.e-15;
 	}
 
 }

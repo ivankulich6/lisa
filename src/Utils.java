@@ -70,9 +70,9 @@ public class Utils {
 		return diff;
 	}
 
-	private static void _drawShapes(Area.Shape[] shapes, BufferedImage img) {
+	private static void _drawShapes(Shape[] shapes, BufferedImage img) {
 		Graphics g = img.getGraphics();
-		for (Area.Shape shape : shapes) {
+		for (Shape shape : shapes) {
 			int[] color = shape.getColor();
 			g.setColor(new Color(color[0], color[1], color[2], color[3]));
 			int npoints = shape.points.length;
@@ -113,7 +113,7 @@ public class Utils {
 		System.out.println(s);
 	}
 
-	private static StringBuilder ShapeToSb(Area.Shape shape) {
+	private static StringBuilder ShapeToSb(Shape shape) {
 		StringBuilder sb = new StringBuilder("[");
 		sb.append(arrayToSb(shape.rgba));
 		for (int j = 0; j < shape.points.length; j++) {

@@ -31,7 +31,7 @@ public class Main {
 		System.out.println("Hello RbTree");
 		Main p = new Main();
 		p.run();
-		//p.runTests();
+		// p.runTests();
 	}
 
 	public void run() throws IOException {
@@ -40,8 +40,9 @@ public class Main {
 
 		Area area = new Area(true);
 		boolean withReducer = false;
+		area.penaltyPointsCountParam = 1000000.0;
 		area.setTarget("women_small.jpg", withReducer);
-		//area.setFromFile("testdata/women_small.shapes", withReducer);
+		// area.setFromFile("testdata/women_small.shapes", withReducer);
 
 		prepareGUI(area.width, area.height);
 		int cnt = 0;
@@ -72,16 +73,16 @@ public class Main {
 				// Diff: incremental diff, own merging of transparent colors,
 
 			}
-//			if (cnt >= 10000) {
-//				gWindowClosing = true;
-//			}
+			// if (cnt >= 10000) {
+			// gWindowClosing = true;
+			// }
 
 			if (gWindowClosing) {
 				long stopTime = System.currentTimeMillis();
 				long elapsedTime = stopTime - startTime;
 				System.out.println("");
 				System.out.println("elapsedTime = " + elapsedTime + " milliseconds");
-				Area.Shape[] exShapes = area.extractShapes();
+				Shape[] exShapes = area.extractShapes();
 				assert exShapes.length == area.shapesCount;
 				assert area.recalcPointsCount(exShapes) == area.pointsCount;
 				System.out.println("Diff=" + area.diff + ", cnt=" + cnt + ", polygons=" + area.shapesCount + ", temp="
@@ -103,7 +104,7 @@ public class Main {
 
 	public void runTests() throws IOException {
 		Test.diffIncIfMethodsCompareTest();
-		Test.ccSpeedAndAccuracyTest();
+		// Test.ccSpeedAndAccuracyTest();
 	}
 
 }
