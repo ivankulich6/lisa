@@ -70,9 +70,9 @@ public class Utils {
 		return diff;
 	}
 
-	private static void _drawShapes(Area.Shape[] shapes, BufferedImage img) {
+	private static void _drawShapes(Shape[] shapes, BufferedImage img) {
 		Graphics g = img.getGraphics();
-		for (Area.Shape shape : shapes) {
+		for (Shape shape : shapes) {
 			int[] color = shape.getColor();
 			g.setColor(new Color(color[0], color[1], color[2], color[3]));
 			int npoints = shape.points.length;
@@ -113,7 +113,7 @@ public class Utils {
 		System.out.println(s);
 	}
 
-	private static StringBuilder ShapeToSb(Area.Shape shape) {
+	private static StringBuilder ShapeToSb(Shape shape) {
 		StringBuilder sb = new StringBuilder("[");
 		sb.append(arrayToSb(shape.rgba));
 		for (int j = 0; j < shape.points.length; j++) {
@@ -128,16 +128,21 @@ public class Utils {
 		sb.append("TargetPath: ").append(area.targetPath).append("\n");
 		sb.append("Width: ").append(area.width).append("\n");
 		sb.append("Height: ").append(area.height).append("\n");
-		sb.append("mutationsTotal: ").append(area.mutationsTotal).append("\n");
-		sb.append("mutationsAccepted: ").append(area.mutationsAccepted).append("\n");
-		sb.append("mutationsAdd: ").append(area.mutationsAdd).append("\n");
-		sb.append("mutationsRemove: ").append(area.mutationsRemove).append("\n");
-		sb.append("mutationsReplace: ").append(area.mutationsReplace).append("\n");
+		sb.append("DistancePerPixel: ").append(getMinMaxColorDistanceToTargetPerPixel(area)).append("\n");
+		sb.append("MutationsTotal: ").append(area.mutationsTotal).append("\n");
+		sb.append("MutationsAccepted: ").append(area.mutationsAccepted).append("\n");
+		sb.append("MutationsAdd: ").append(area.mutationsAdd).append("\n");
+		sb.append("MutationsRemove: ").append(area.mutationsRemove).append("\n");
+		sb.append("MutationsReplace: ").append(area.mutationsReplace).append("\n");
 		sb.append("ShapesCount: ").append(area.shapes.length).append("\n");
 		for (int i = 0; i < area.shapes.length; i++) {
 			sb.append("Shape_").append(i).append(": ").append(ShapeToSb(area.shapes[i])).append("\n");
 		}
 		return sb;
+	}
+
+	public static double getMinMaxColorDistanceToTargetPerPixel(Area area) {
+		return area.penaltyRgb(addeDiff(drawShapes(area), area.target));
 	}
 
 	public static StringBuilder textToSb(String text) {

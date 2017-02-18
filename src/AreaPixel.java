@@ -2,7 +2,7 @@ public class AreaPixel {
 
 	public static final double BKGCOLOR[] = { 1, 1, 1, 1 };
 
-	public RbTree<Integer, Area.Shape> shapes;
+	public RbTree<Integer, Shape> shapes;
 	public double[] rgb;
 	public double[] newRgb;
 	public double[] targetRgb;
@@ -17,10 +17,10 @@ public class AreaPixel {
 
 	public void initShapes(boolean withReducer) {
 
-		Reducer<Area.Shape> reducer = new Reducer<Area.Shape>() {
+		Reducer<Shape> reducer = new Reducer<Shape>() {
 			@Override
-			public Area.Shape reduce(Area.Shape reduced, Area.Shape value) {
-				Area.Shape res = new Area().new Shape();
+			public Shape reduce(Shape reduced, Shape value) {
+				Shape res = new Shape();
 				res.rgba = new double[4];
 				convexCombine(value.rgba, reduced.rgba, res.rgba);
 				return res;
@@ -28,17 +28,17 @@ public class AreaPixel {
 		};
 
 		if (withReducer) {
-			shapes = new RbTree<Integer, Area.Shape>(null, reducer);
+			shapes = new RbTree<Integer, Shape>(null, reducer);
 		} else {
-			shapes = new RbTree<Integer, Area.Shape>();
+			shapes = new RbTree<Integer, Shape>();
 		}
 
 	}
 
-	public double diffIncIfAdded_ITERATE(Area.Shape shape) {
+	public double diffIncIfAdded_ITERATE(Shape shape) {
 		double diffOld = diff();
 		System.arraycopy(BKGCOLOR, 0, newRgb, 0, 4);
-		RbTree<Integer, Area.Shape>.EntryIterator it = shapes.new EntryIterator(shapes.firstEntry());
+		RbTree<Integer, Shape>.EntryIterator it = shapes.new EntryIterator(shapes.firstEntry());
 		while (it.hasNext()) {
 			convexCombine(it.next().getValue().rgba, newRgb, newRgb);
 		}
@@ -46,10 +46,10 @@ public class AreaPixel {
 		return diff(newRgb, targetRgb) - diffOld;
 	}
 
-	public double diffIncIfAdded_RFT(Area.Shape shape) {
+	public double diffIncIfAdded_RFT(Shape shape) {
 		double diffOld = diff();
-		// Area.Shape cShape = shapes.getReduced();
-		Area.Shape cShape = shapes.getReduced(0, Integer.MAX_VALUE);
+		// Shape cShape = shapes.getReduced();
+		Shape cShape = shapes.getReduced(0, Integer.MAX_VALUE);
 		if (cShape != null) {
 			convexCombine(shape.rgba, cShape.rgba, newRgb);
 			convexCombine(newRgb, BKGCOLOR, newRgb);
@@ -59,22 +59,22 @@ public class AreaPixel {
 		return diff(newRgb, targetRgb) - diffOld;
 	}
 
-	public double diffIncIfAdded_PUTREM(Area.Shape shape) {
+	public double diffIncIfAdded_PUTREM(Shape shape) {
 		double diffOld = diff();
 		int order = shape.order;
 		shapes.put(order, shape);
-		Area.Shape cShape = shapes.getReduced();
+		Shape cShape = shapes.getReduced();
 		convexCombine(cShape.rgba, BKGCOLOR, newRgb);
 		shapes.remove(order);
 		return diff(newRgb, targetRgb) - diffOld;
 	}
 
-	public double diffIncIfRemoved_ITERATE(Area.Shape shape) {
+	public double diffIncIfRemoved_ITERATE(Shape shape) {
 		double diffOld = diff();
 		int order = shape.order;
-		Area.Shape savedShape;
+		Shape savedShape;
 		System.arraycopy(BKGCOLOR, 0, newRgb, 0, 4);
-		RbTree<Integer, Area.Shape>.EntryIterator it = shapes.new EntryIterator(shapes.firstEntry());
+		RbTree<Integer, Shape>.EntryIterator it = shapes.new EntryIterator(shapes.firstEntry());
 		while (it.hasNext()) {
 			savedShape = it.next().getValue();
 			if (savedShape.order != order) {
@@ -84,11 +84,11 @@ public class AreaPixel {
 		return diff(newRgb, targetRgb) - diffOld;
 	}
 
-	public double diffIncIfRemoved_RFT(Area.Shape shape) {
+	public double diffIncIfRemoved_RFT(Shape shape) {
 		double diffOld = diff();
 		int order = shape.order;
-		Area.Shape cShape1 = shapes.getReduced(-1, order);
-		Area.Shape cShape2 = shapes.getReduced(order + 1, Integer.MAX_VALUE);
+		Shape cShape1 = shapes.getReduced(-1, order);
+		Shape cShape2 = shapes.getReduced(order + 1, Integer.MAX_VALUE);
 		if (cShape1 == null && cShape2 == null) {
 			setBkgColor(newRgb);
 		} else if (cShape1 == null) {
@@ -103,11 +103,11 @@ public class AreaPixel {
 
 	}
 
-	public double diffIncIfRemoved_PUTREM(Area.Shape shape) {
+	public double diffIncIfRemoved_PUTREM(Shape shape) {
 		double diffOld = diff();
 		int order = shape.order;
 		shapes.remove(order);
-		Area.Shape cShape = shapes.getReduced();
+		Shape cShape = shapes.getReduced();
 		if (cShape != null) {
 			convexCombine(cShape.rgba, BKGCOLOR, newRgb);
 		} else {
@@ -117,7 +117,7 @@ public class AreaPixel {
 		return diff(newRgb, targetRgb) - diffOld;
 	}
 
-	public double diffIncIfReplaced_ITERATE(Area.Shape oldShape, Area.Shape newShape, int intype, boolean sameRgba) {
+	public double diffIncIfReplaced_ITERATE(Shape oldShape, Shape newShape, int intype, boolean sameRgba) {
 		int order = newShape.order;
 		assert order == oldShape.order;
 		if (intype == 3 && sameRgba) {
@@ -125,10 +125,10 @@ public class AreaPixel {
 			return 0;
 		} else {
 			double diffOld = diff();
-			Area.Shape savedShape = null;
+			Shape savedShape = null;
 			System.arraycopy(BKGCOLOR, 0, newRgb, 0, 4);
 			if (intype == 1) {
-				RbTree<Integer, Area.Shape>.EntryIterator it = shapes.new EntryIterator(shapes.firstEntry());
+				RbTree<Integer, Shape>.EntryIterator it = shapes.new EntryIterator(shapes.firstEntry());
 				while (it.hasNext()) {
 					savedShape = it.next().getValue();
 					if (savedShape.order != order) {
@@ -137,7 +137,7 @@ public class AreaPixel {
 				}
 			} else if (intype == 2) {
 				boolean add = true;
-				RbTree<Integer, Area.Shape>.EntryIterator it = shapes.new EntryIterator(shapes.firstEntry());
+				RbTree<Integer, Shape>.EntryIterator it = shapes.new EntryIterator(shapes.firstEntry());
 				while (it.hasNext()) {
 					savedShape = it.next().getValue();
 					if (savedShape.order > order) {
@@ -155,7 +155,7 @@ public class AreaPixel {
 					convexCombine(newShape.rgba, newRgb, newRgb);
 				}
 			} else if (intype == 3) {
-				RbTree<Integer, Area.Shape>.EntryIterator it = shapes.new EntryIterator(shapes.firstEntry());
+				RbTree<Integer, Shape>.EntryIterator it = shapes.new EntryIterator(shapes.firstEntry());
 				while (it.hasNext()) {
 					savedShape = it.next().getValue();
 					if (savedShape.order != order) {
@@ -169,7 +169,7 @@ public class AreaPixel {
 		}
 	}
 
-	public double diffIncIfReplaced_RFT(Area.Shape oldShape, Area.Shape newShape, int intype, boolean sameRgba) {
+	public double diffIncIfReplaced_RFT(Shape oldShape, Shape newShape, int intype, boolean sameRgba) {
 		int order = newShape.order;
 		assert order == oldShape.order;
 		if (intype == 3 && sameRgba) {
@@ -179,8 +179,8 @@ public class AreaPixel {
 			return diffIncIfRemoved_RFT(newShape);
 		} else {
 			double diffOld = diff();
-			Area.Shape cShape1 = shapes.getReduced(-1, order);
-			Area.Shape cShape2 = shapes.getReduced(order + 1, Integer.MAX_VALUE);
+			Shape cShape1 = shapes.getReduced(-1, order);
+			Shape cShape2 = shapes.getReduced(order + 1, Integer.MAX_VALUE);
 			if (cShape1 == null && cShape2 == null) {
 				convexCombine(newShape.rgba, BKGCOLOR, newRgb);
 			} else if (cShape1 == null) {
@@ -199,7 +199,7 @@ public class AreaPixel {
 		}
 	}
 
-	public double diffIncIfReplaced_PUTREM(Area.Shape oldShape, Area.Shape newShape, int intype, boolean sameRgba) {
+	public double diffIncIfReplaced_PUTREM(Shape oldShape, Shape newShape, int intype, boolean sameRgba) {
 		int order = newShape.order;
 		assert order == oldShape.order;
 		if (intype == 3 && sameRgba) {
@@ -213,7 +213,7 @@ public class AreaPixel {
 				shapes.put(order, newShape);
 			}
 
-			Area.Shape cShape = shapes.getReduced();
+			Shape cShape = shapes.getReduced();
 			if (cShape != null) {
 				convexCombine(cShape.rgba, BKGCOLOR, newRgb);
 			} else {
@@ -228,17 +228,17 @@ public class AreaPixel {
 		}
 	}
 
-	public void addShape(Area.Shape shape) {
+	public void addShape(Shape shape) {
 		shapes.put(shape.order, shape);
 		useNewRgb();
 	}
 
-	public void removeShape(Area.Shape shape) {
+	public void removeShape(Shape shape) {
 		shapes.remove(shape.order);
 		useNewRgb();
 	}
 
-	public void replaceShape(Area.Shape oldShape, Area.Shape newShape, int intype) {
+	public void replaceShape(Shape oldShape, Shape newShape, int intype) {
 		int orderOld = oldShape.order;
 		int orderNew = newShape.order;
 		if (intype == 1) {
@@ -256,7 +256,7 @@ public class AreaPixel {
 
 	public void rgbRegen(double[] rgba) {
 		System.arraycopy(BKGCOLOR, 0, rgba, 0, 4);
-		RbTree<Integer, Area.Shape>.EntryIterator it = shapes.new EntryIterator(shapes.firstEntry());
+		RbTree<Integer, Shape>.EntryIterator it = shapes.new EntryIterator(shapes.firstEntry());
 		while (it.hasNext()) {
 			convexCombine(it.next().getValue().rgba, rgba, rgba);
 		}
@@ -294,6 +294,7 @@ public class AreaPixel {
 			outRgba[2] = aa1 * srcRgba[2] + aa2 * dstRgba[2];
 		}
 		outRgba[3] = outAlpha;
+		Area.ccCount++;
 		return;
 	}
 
