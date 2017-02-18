@@ -41,23 +41,23 @@ public class Main {
 		Area area = new Area(true);
 		boolean withReducer = false;
 		area.penaltyPointsCountParam = 1000000.0;
-		area.setTarget("women_small.jpg", withReducer);
-		// area.setFromFile("testdata/women_small.shapes", withReducer);
+		// area.setTarget("women_small.jpg", withReducer);
+		area.setFromFile("testdata/women_small.shapes", withReducer);
 
 		prepareGUI(area.width, area.height);
 		int cnt = 0;
 		int cntSuccess = 0;
-
+		img = Utils.drawArea(area);
+		drawing.draw(img);
 		long startTime = System.currentTimeMillis();
 
 		while (true) {
 			cnt++;
 			boolean success = area.doRandomChange(Area.DiffIncIfMethod.ITERATE);
-			// System.out.print(area.mutationType);
 			if (success) {
 				System.out.print("+");
 				cntSuccess++;
-				if (cnt == 1 || cntSuccess % 10 == 0 || cnt % 100 == 0) {
+				if (cntSuccess % 10 == 0 || cnt % 100 == 0) {
 					img = Utils.drawArea(area);
 					drawing.draw(img);
 				}
@@ -65,12 +65,12 @@ public class Main {
 			if (cnt % 100 == 0) {
 				double diffAll = area.diffTest();
 				System.out.println("");
-				System.out.println("Diff=" + area.diff + " DiffAll=" + diffAll + ", cnt=" + cnt + ", polygons="
-						+ area.shapesCount + ", temp=" + area.temp);
-				// incrementally computed difference should fit whole area
-				// recomputed difference diffAll
-				// assert Math.abs(area.diff - diffAll) < 1.e-1;
-				// Diff: incremental diff, own merging of transparent colors,
+				System.out.println("Diff=" + area.diff + ", cnt=" + cnt + ", cntAll=" + area.mutationsTotal
+						+ ", polygons=" + area.shapesCount + ", temp=" + area.temp);
+				// Incrementally computed difference should fit whole area
+				// recomputed difference diffAll.
+				assert Math.abs(area.diff - diffAll) < 1.e-12;
+				// Diff: incremental diff, own merging of transparent colors.
 
 			}
 			// if (cnt >= 10000) {
@@ -85,13 +85,14 @@ public class Main {
 				Shape[] exShapes = area.extractShapes();
 				assert exShapes.length == area.shapesCount;
 				assert area.recalcPointsCount(exShapes) == area.pointsCount;
-				System.out.println("Diff=" + area.diff + ", cnt=" + cnt + ", polygons=" + area.shapesCount + ", temp="
-						+ area.temp);
+				System.out.println("Diff=" + area.diff + ", cnt=" + cnt + ", cntAll=" + area.mutationsTotal
+						+ ", polygons=" + area.shapesCount + ", temp=" + area.temp);
 				shapesImg = Utils.drawShapes(area);
 				drawing.draw(shapesImg);
 				double diffAll = area.diffTest();
 				double diff2 = area.diffTest(Utils.addeDiff(shapesImg, area.target));
-				System.out.println("DiffAll=" + diffAll + " Diff2=" + diff2 + " AvgPolyPerPixel="
+				System.out.println("DiffAll=" + diffAll + ", Diff2=" + diff2 + ", Distance="
+						+ Utils.getMinMaxColorDistanceToTargetPerPixel(area) + ", AvgPolyPerPixel="
 						+ area.getAvgNumOfShapesPerPixel());
 				// Diff2: regenerated whole area diff, merging of transparent
 				// colors by imported Graphics (fillPolygon)
@@ -104,7 +105,7 @@ public class Main {
 
 	public void runTests() throws IOException {
 		Test.diffIncIfMethodsCompareTest();
-		// Test.ccSpeedAndAccuracyTest();
+		Test.ccSpeedAndAccuracyTest();
 	}
 
 }
