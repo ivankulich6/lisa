@@ -294,6 +294,7 @@ public class AreaPixel {
 			outRgba[2] = aa1 * srcRgba[2] + aa2 * dstRgba[2];
 		}
 		outRgba[3] = outAlpha;
+		Area.ccCount++;
 		return;
 	}
 

@@ -41,23 +41,25 @@ public class Main {
 		Area area = new Area(true);
 		boolean withReducer = false;
 		area.penaltyPointsCountParam = 1000000.0;
-		// area.setTarget("women_small.jpg", withReducer);
-		area.setFromFile("testdata/women_small.shapes", withReducer);
+		area.setTarget("women_small.jpg", withReducer);
+		// area.setFromFile("testdata/women_small.shapes", withReducer);
 
 		prepareGUI(area.width, area.height);
 		int cnt = 0;
 		int cntSuccess = 0;
 		img = Utils.drawArea(area);
 		drawing.draw(img);
+
 		long startTime = System.currentTimeMillis();
 
 		while (true) {
 			cnt++;
 			boolean success = area.doRandomChange(Area.DiffIncIfMethod.ITERATE);
+			// System.out.print(area.mutationType);
 			if (success) {
 				System.out.print("+");
 				cntSuccess++;
-				if (cntSuccess % 10 == 0 || cnt % 100 == 0) {
+				if (cnt == 1 || cntSuccess % 10 == 0 || cnt % 100 == 0) {
 					img = Utils.drawArea(area);
 					drawing.draw(img);
 				}

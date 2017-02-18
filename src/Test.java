@@ -177,6 +177,7 @@ public class Test {
 			throws IOException {
 		BufferedImage shapesImg;
 		Area area = new Area(true);
+		Area.ccCount = 0;
 		area.randg = new Random(6543210);
 		area.penaltyPointsCountParam = 10000000000.0;
 		area.setTarget("women_small.jpg", withReducer);
@@ -204,6 +205,7 @@ public class Test {
 		sb.append("\nDiffAll=" + diffAll + " Diff2=" + diff2 + " AvgPolyPerPixel=" + avgPolyPerPixel);
 		// Diff2: regenerated whole area diff, merging of transparent
 		// colors by imported Graphics (fillPolygon)
+		sb.append("\nccCount=" + Area.ccCount);
 		area.shapesToFile("testdata/shapes_test_" + method.toString() + ".txt");
 		System.out.println(sb.toString());
 		System.out.println("");
