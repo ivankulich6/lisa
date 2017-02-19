@@ -39,11 +39,10 @@ public class Main {
 		BufferedImage img;
 
 		Area area = new Area(true);
+		area.penaltyPointsCountParam = 10000000.0;
 		boolean withReducer = false;
-		area.penaltyPointsCountParam = 1000000.0;
 		area.setTarget("women_small.jpg", withReducer);
-		// area.setFromFile("testdata/women_small.shapes", withReducer);
-
+		// area.setFromFile("testdata/women_small_100.shapes", withReducer);
 		prepareGUI(area.width, area.height);
 		int cnt = 0;
 		int cntSuccess = 0;
@@ -98,7 +97,7 @@ public class Main {
 						+ area.getAvgNumOfShapesPerPixel());
 				// Diff2: regenerated whole area diff, merging of transparent
 				// colors by imported Graphics (fillPolygon)
-				area.shapesToFile("testdata/women_small.shapes");
+				area.shapesToFile("testdata/women_small_100.shapes");
 				System.exit(0);
 				break;
 			}
@@ -107,6 +106,7 @@ public class Main {
 
 	public void runTests() throws IOException {
 		Test.diffIncIfMethodsCompareTest();
+		Test.diffIncIfMethodsCompareTest2();
 		Test.ccSpeedAndAccuracyTest();
 	}
 

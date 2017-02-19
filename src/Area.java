@@ -70,7 +70,7 @@ public class Area {
 	// debug helpers
 	public static int cntRandomChange;
 	public static int currPixelOrder;
-	public static int ccCount;
+	public static long ccCount;
 
 	public class Mutation {
 		Shape oldShape = null;
@@ -579,14 +579,11 @@ public class Area {
 			int inninner;
 			if (inner == 0) { // rgba
 				inninner = randg.nextInt(4);
-				int move = randg.nextInt(20) - 10;
+				double move = (1 / (double) 255) * (randg.nextInt(20) - 10);
 				double[] tmp = newShape.rgba;
 				tmp[inninner] += move;
-				// if messing with color, trim outputs to 0, 255
-				tmp[inninner] = Math.min(tmp[inninner], 255);
-				tmp[inninner] = Math.max(tmp[inninner], 0);
-				tmp[inninner] = (1 / (double) 255) * tmp[inninner];
-
+				// trim color coordinate to 0, 1
+				tmp[inninner] = Math.min(Math.max(tmp[inninner], 0), 1);
 			} else {
 				inninner = randg.nextInt(newShape.points[inner - 1].length);
 				int move = randg.nextInt(20) - 10;

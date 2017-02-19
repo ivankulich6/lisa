@@ -4,3 +4,4 @@ bin
 .settings
 testdata/*
 !testdata/readme
+!testdata/diffIncIfMethodsCompareTest2.shapes

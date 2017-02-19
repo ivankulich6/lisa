@@ -131,7 +131,7 @@ public class Test {
 		elapsedTime = stopTime - startTime;
 		Utils.log2("float: elapsedTime= " + elapsedTime + " milliseconds" + " avg=" + Utils.arrayToSb(fAvg) + " dist="
 				+ fDist);
-
+		printMsgResultsFile();
 	}
 
 	public static void convexCombine(double srcRgba[], double dstRgba[], double outRgba[]) {
@@ -171,6 +171,7 @@ public class Test {
 		diffIncIfMethodsCompareTest1(Area.DiffIncIfMethod.ITERATE, false);
 		diffIncIfMethodsCompareTest1(Area.DiffIncIfMethod.RFT, true);
 		diffIncIfMethodsCompareTest1(Area.DiffIncIfMethod.PUTREM, true);
+		printMsgResultsFile();
 	}
 
 	public static void diffIncIfMethodsCompareTest1(Area.DiffIncIfMethod method, boolean withReducer)
@@ -213,11 +214,62 @@ public class Test {
 		Utils.log(sb);
 		// the next depends on implementation of getRandomShape,
 		// getRandomMutation, penaltyShape
-		assert area.shapesCount == 105;
-		assert Math.abs(area.diff - (double) 0.4846866435500602) < (double) 1.e-15;
-		assert Math.abs(diffAll - (double) 0.48468664355005703) < (double) 1.e-15;
-		assert Math.abs(diff2 - (double) 0.4844956741340939) < (double) 1.e-15;
-		assert Math.abs(avgPolyPerPixel - (double) 8.236) < (double) 1.e-15;
+		assert area.shapesCount == 95;
+		assert Math.abs(area.diff - (double) 0.5343659179119827) < (double) 1.e-15;
+		assert Math.abs(diffAll - (double) 0.5343659179119827) < (double) 1.e-15;
+		assert Math.abs(diff2 - (double) 0.5334975342648108) < (double) 1.e-15;
+		assert Math.abs(avgPolyPerPixel - (double) 6.954266666666666) < (double) 1.e-15;
+	}
+
+	public static void diffIncIfMethodsCompareTest2() throws IOException {
+		String logFile = "testdata/log_diffIncIfMethodsCompareTest2.txt";
+		Utils.setNewLog(logFile);
+		diffIncIfMethodsCompareTest21(Area.DiffIncIfMethod.ITERATE, false);
+		diffIncIfMethodsCompareTest21(Area.DiffIncIfMethod.RFT, true);
+		printMsgResultsFile();
+	}
+
+	public static void diffIncIfMethodsCompareTest21(Area.DiffIncIfMethod method, boolean withReducer)
+			throws IOException {
+		BufferedImage shapesImg;
+		Area area = new Area(true);
+		Area.ccCount = 0;
+		area.randg = new Random(6543210);
+		area.penaltyPointsCountParam = Double.MAX_VALUE;
+		area.setFromFile("testdata/diffIncIfMethodsCompareTest2.shapes", withReducer);
+		int cnt = 0;
+		String sMsg = "Starting test diffIncIfMethodsCompareTest2, method = " + method.toString();
+		System.out.print(sMsg);
+		long startTime = System.currentTimeMillis();
+		while (cnt < 5000) {
+			cnt++;
+			area.doRandomChange(method);
+		}
+		long stopTime = System.currentTimeMillis();
+		long elapsedTime = stopTime - startTime;
+		StringBuilder sb = new StringBuilder();
+
+		sb.append("\nelapsedTime = " + elapsedTime + " milliseconds");
+		Shape[] exShapes = area.extractShapes();
+		assert exShapes.length == area.shapesCount;
+		assert area.recalcPointsCount(exShapes) == area.pointsCount;
+		sb.append("\nDiff=" + area.diff + ", cnt=" + cnt + ", polygons=" + area.shapesCount + ", temp=" + area.temp);
+		shapesImg = Utils.drawShapes(area);
+		double diffAll = area.diffTest();
+		double diff2 = area.diffTest(Utils.addeDiff(shapesImg, area.target));
+		double avgPolyPerPixel = area.getAvgNumOfShapesPerPixel();
+		sb.append("\nDiffAll=" + diffAll + " Diff2=" + diff2 + " AvgPolyPerPixel=" + avgPolyPerPixel);
+		// Diff2: regenerated whole area diff, merging of transparent
+		// colors by imported Graphics (fillPolygon)
+		sb.append("\nccCount=" + Area.ccCount);
+		System.out.println(sb.toString());
+		System.out.println("");
+		sb.insert(0, sMsg).append("\n\n");
+		Utils.log(sb);
+	}
+
+	public static void printMsgResultsFile() {
+		System.out.println("Find results in file " + Utils.logPath + "\n");
 	}
 
 }
