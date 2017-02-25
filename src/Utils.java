@@ -1,14 +1,33 @@
 import java.awt.Color;
 import java.awt.Graphics;
+import java.awt.Point;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 import javax.imageio.ImageIO;
+import javax.swing.AbstractAction;
+import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
 
 public class Utils {
 
@@ -128,6 +147,8 @@ public class Utils {
 		sb.append("TargetPath: ").append(area.targetPath).append("\n");
 		sb.append("Width: ").append(area.width).append("\n");
 		sb.append("Height: ").append(area.height).append("\n");
+		sb.append("PenaltyPointsCountParam: ").append(area.penaltyPointsCountParam).append("\n");
+		sb.append("PointsCount: ").append(area.pointsCount).append("\n");
 		sb.append("DistancePerPixel: ").append(getMinMaxColorDistanceToTargetPerPixel(area)).append("\n");
 		sb.append("MutationsTotal: ").append(area.mutationsTotal).append("\n");
 		sb.append("MutationsAccepted: ").append(area.mutationsAccepted).append("\n");
@@ -329,6 +350,431 @@ public class Utils {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+	}
+
+	public static void polygonize(String targetPath, String shapesDirPath, int filesCount, double pointsPenalty,
+			double pointsPenaltyQuotient, int minMutations) throws IOException {
+		new Polygonizer(targetPath, shapesDirPath, filesCount, pointsPenalty, pointsPenaltyQuotient, minMutations)
+				.polygonize();
+	}
+
+	public static class Polygonizer {
+		String shapesDirPath;
+		String targetPath;
+		String fileNameBase;
+		int filesCount;
+		List<String> filePaths;
+		double penaltyPointsCountParams[];
+		double penaltyPointsCountParam;
+		JFrame mainFrame;
+		DrawingPanel drawing;
+		boolean windowClosing = false;
+		BufferedImage img;
+		int minMutations;
+		double pointsPenalty;
+		double pointsPenaltyQuotient;
+		int nRepeat;
+
+		Polygonizer(String targetPath, String shapesDirPath, int filesCount, double pointsPenalty,
+				double pointsPenaltyQuotient, int minMutations) throws IOException {
+			this.targetPath = targetPath;
+			this.shapesDirPath = shapesDirPath;
+			this.filesCount = filesCount;
+			this.pointsPenalty = pointsPenalty;
+			this.pointsPenaltyQuotient = pointsPenaltyQuotient;
+			this.minMutations = minMutations;
+
+			File directory = new File(shapesDirPath);
+			if (directory.exists()) {
+				assert directory.isDirectory();
+				filePaths = getShapesFilePaths(shapesDirPath);
+				if (filePaths.size() > 0) {
+					this.filesCount = filePaths.size();
+				} else {
+					generateFileSpecs();
+				}
+			} else {
+				generateFileSpecs();
+			}
+			prepareGUI();
+		}
+
+		private void generateFileSpecs() {
+			filePaths = new ArrayList<String>(filesCount);
+			penaltyPointsCountParams = new double[filesCount];
+			File fTargetPath = new File(targetPath);
+			assert fTargetPath.exists() && !fTargetPath.isDirectory();
+			fileNameBase = fTargetPath.getName();
+			int pos = fileNameBase.lastIndexOf(".");
+			if (pos > 0) {
+				fileNameBase = fileNameBase.substring(0, pos);
+			}
+			for (int j = 0; j < filesCount; j++) {
+				String fileName = fileNameBase + String.format("_%03d", j + 1) + ".shapes";
+				filePaths.add(Paths.get(shapesDirPath, fileName).toString());
+			}
+			double penalty = pointsPenalty;
+			for (int j = 0; j < filesCount; j++) {
+				penaltyPointsCountParams[j] = penalty;
+				penalty *= pointsPenaltyQuotient;
+			}
+		}
+
+		private void prepareGUI() throws IOException {
+			mainFrame = new JFrame("Polygonizer");
+			mainFrame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+			mainFrame.setSize(10, 10);
+			drawing = new DrawingPanel();
+
+			mainFrame.add(drawing);
+			mainFrame.setVisible(false);
+			mainFrame.addWindowListener(new WindowAdapter() {
+				public void windowClosing(WindowEvent we) {
+					System.out.println("\nmainFrame is closing");
+					windowClosing = true;
+				}
+			});
+		}
+
+		public void polygonize() throws IOException {
+			double successQuotients[] = new double[filesCount];
+			Arrays.fill(successQuotients, 1);
+			double successQuotientStop = 1;
+			nRepeat = 0;
+			while (successQuotientStop > 0) {
+				boolean done = true;
+				boolean changeStop = true;
+				nRepeat++;
+				for (int j = 0; j < filesCount; j++) {
+					if (successQuotients[j] >= (double) 0.0005) {
+						done = false;
+						successQuotients[j] = polygonize1(j, minMutations, successQuotientStop);
+						if (successQuotients[j] > successQuotientStop) {
+							changeStop = false;
+						}
+					}
+				}
+				if (done) {
+					break;
+				}
+				if (changeStop) {
+					successQuotientStop *= 0.5;
+				}
+			}
+			System.exit(0);
+		}
+
+		public double polygonize1(int index, int cntMin, double successQuotientStop) throws IOException {
+			double successQuotient = 1;
+			String resultPath = filePaths.get(index);
+			Area area = new Area(true);
+			File file = new File(resultPath);
+			assert !file.isDirectory();
+			if (file.exists()) {
+				area.setFromFile(resultPath, false);
+			} else {
+				if (index > 0) { // use index - 1 shapes if possible
+					String resultPathPrev = filePaths.get(index - 1);
+					File filePrev = new File(resultPathPrev);
+					if (filePrev.exists()) {
+						area.setFromFile(resultPathPrev, false);
+					}
+				}
+				if (area.targetPath == null) {
+					area.setTarget(targetPath, false);
+				}
+				area.setPenaltyPointsCountParam(penaltyPointsCountParams[index]);
+			}
+			mainFrame.setSize(area.width, area.height);
+			mainFrame.setVisible(true);
+			int cnt = 0;
+			int cntSuccess = 0;
+			img = Utils.drawArea(area);
+			drawing.draw(img);
+			long startTime = System.currentTimeMillis();
+			boolean taskDone = false;
+			while (true) {
+				cnt++;
+				boolean success = area.doRandomChange(Area.DiffIncIfMethod.ITERATE);
+				if (success) {
+					System.out.print("+");
+					cntSuccess++;
+					if (cntSuccess % 10 == 0 || cnt % 100 == 0) {
+						img = Utils.drawArea(area);
+						drawing.draw(img);
+					}
+				}
+				if (cnt % 100 == 0) {
+					System.out.println("");
+					System.out.println("File=" + (index + 1) + ", Repeat=" + nRepeat + ", Diff=" + area.diff + ", cnt="
+							+ cnt + ", cntAll=" + area.mutationsTotal + ", polygons=" + area.shapesCount);
+
+				}
+				successQuotient = (double) cntSuccess / (double) cnt;
+				if (cnt >= cntMin && successQuotient <= successQuotient) {
+					taskDone = true;
+				}
+				if (taskDone || windowClosing) {
+					long stopTime = System.currentTimeMillis();
+					long elapsedTime = stopTime - startTime;
+					System.out.println("");
+					System.out.println("elapsedTime = " + elapsedTime + " milliseconds");
+					Shape[] exShapes = area.extractShapes();
+					assert exShapes.length == area.shapesCount;
+					assert area.recalcPointsCount(exShapes) == area.pointsCount;
+					System.out.println("File=" + (index + 1) + ", Repeat=" + nRepeat + ", Diff=" + area.diff + ", cnt="
+							+ cnt + ", cntAll=" + area.mutationsTotal + ", polygons=" + area.shapesCount);
+					double diffAll = area.diffTest();
+					System.out.println("DiffAll=" + diffAll + ", Distance="
+							+ getMinMaxColorDistanceToTargetPerPixel(area) + ", AvgPolyPerPixel="
+							+ area.getAvgNumOfShapesPerPixel());
+					area.shapesToFile(resultPath);
+					if (windowClosing) {
+						System.exit(0);
+						break;
+					}
+					break;
+				}
+			}
+			return successQuotient;
+		}
+	}
+
+	public static List<String> getShapesFilePaths(String shapesDirPath) {
+		List<String> filePaths = new ArrayList<>();
+		try (DirectoryStream<Path> ds = Files.newDirectoryStream(Paths.get(shapesDirPath), "*.shapes")) {
+			for (Path p : ds) {
+				filePaths.add(p.toString());
+			}
+		} catch (IOException ex) {
+			ex.printStackTrace();
+		}
+		Collections.sort(filePaths);
+		return filePaths;
+	}
+
+	public static List<String> getShapesDirPaths(String parentDirPath) {
+		List<String> dirPaths = new ArrayList<>();
+		try (DirectoryStream<Path> ds = Files.newDirectoryStream(Paths.get(parentDirPath))) {
+			for (Path p : ds) {
+				File dir = p.toFile();
+				if (dir.isDirectory()) {
+					if (getShapesFilePaths(dir.toString()).size() > 0) {
+						dirPaths.add(p.toString());
+					}
+				}
+			}
+		} catch (IOException ex) {
+			ex.printStackTrace();
+		}
+		Collections.sort(dirPaths);
+		return dirPaths;
+	}
+
+	public static class ImageViewer {
+		String topDirPath;
+		JFrame mainFrame;
+		DrawingPanel drawing;
+		JButton btnStart;
+		JButton btnNextImage;
+		JButton btnPrevImage;
+		JComboBox<Object> cmbShapesDirs;
+		String shapesDirPath;
+		List<String> filePaths;
+		int fileIndex;
+		Point mainFrameLocation;
+		int hExt;
+		int frameStateID;
+		Area area;
+
+		ImageViewer(String topDirPath) throws IOException {
+			this.topDirPath = topDirPath;
+			mainFrameLocation = null;
+			frameStateID = -1;
+			shapesDirPath = null;
+			actionUp();
+		}
+
+		void setFileIndexNext() {
+			int nFiles = filePaths.size() + 1;
+			if (nFiles == 0) {
+				fileIndex = -1;
+			} else {
+				fileIndex = Math.min(fileIndex + 1, nFiles - 1);
+			}
+		}
+
+		void setFileIndexPrev() {
+			int nFiles = filePaths.size() + 1;
+			if (nFiles == 0) {
+				fileIndex = -1;
+			} else {
+				fileIndex = Math.max(fileIndex - 1, 0);
+			}
+		}
+
+		void showImage() throws IOException {
+			int nFiles = filePaths.size() + 1;
+			btnStart.setVisible(fileIndex == -1);
+			cmbShapesDirs.setVisible(fileIndex == -1);
+			if (fileIndex < 0) {
+			} else if (fileIndex < nFiles) {
+				BufferedImage img;
+				area = new Area(true);
+				if (fileIndex < nFiles - 1) {
+					area.setFromFile(filePaths.get(fileIndex), false, false);
+					img = drawShapes(area);
+				} else {
+					area.setFromFile(filePaths.get(fileIndex - 1), false, false);
+					img = readImage(area.targetPath);
+				}
+				mainFrame.setSize(area.width, area.height + hExt);
+				mainFrame.setTitle("What's this? (press -> for next)");
+				drawing.draw(img);
+			}
+		}
+
+		void actionFirstImage() throws IOException {
+			if (frameStateID == 0) {
+				shapesDirPath = (String) cmbShapesDirs.getSelectedItem();
+				filePaths = getShapesFilePaths(shapesDirPath);
+				fileIndex = 0;
+				frameStateID = 1;
+				showImage();
+			}
+		}
+
+		void actionNext() throws IOException {
+			if (frameStateID == 0) {
+				actionFirstImage();
+			} else if (frameStateID == 1) {
+				setFileIndexNext();
+				showImage();
+			}
+		}
+
+		void actionPrev() throws IOException {
+			if (frameStateID == 0) {
+				actionExit();
+			} else if (frameStateID == 1) {
+				setFileIndexPrev();
+				showImage();
+			}
+		}
+
+		void actionExit() {
+			mainFrame.dispose();
+			System.exit(0);
+		}
+
+		void actionUp() throws IOException {
+			if (frameStateID == 0) {
+				actionExit();
+				return;
+			}
+			frameStateID = 0;
+			fileIndex = -1;
+			int width = 350;
+			int height = 200;
+			btnStart = new JButton("Click to start!");
+			btnStart.addActionListener(btnStartActionListener);
+			cmbShapesDirs = new JComboBox<Object>(getShapesDirPaths(topDirPath).toArray());
+			cmbShapesDirs.setFocusable(false);
+			if (shapesDirPath != null) {
+				cmbShapesDirs.setSelectedItem(shapesDirPath);
+			}
+			hExt = 0;
+			if (mainFrame != null) {
+				mainFrameLocation = mainFrame.getLocation();
+				mainFrame.dispose();
+				hExt = 28;
+			}
+			mainFrame = new JFrame("Polygonized pictures viewer");
+			mainFrame.setSize(width, height + hExt);
+			mainFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+			drawing = new DrawingPanel();
+			mainFrame.add(drawing);
+			drawing.add(new JLabel("Select folder:"));
+			drawing.add(cmbShapesDirs);
+			char[] aspace = new char[100];
+			Arrays.fill(aspace, ' ');
+			String space = new String(aspace);
+			for (int j = 0; j < 3; j++) {
+				drawing.add(new JLabel(space));
+			}
+			drawing.add(btnStart);
+			if (mainFrameLocation != null) {
+				mainFrame.setLocation(mainFrameLocation);
+			}
+			mainFrame.setVisible(true);
+			mainFrame.setFocusable(true);
+			mainFrame.addKeyListener(new KeyListener() {
+				@Override
+				public void keyTyped(KeyEvent evt) {
+				}
+
+				@Override
+				public void keyPressed(KeyEvent evt) {
+					try {
+						action(evt);
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				}
+
+				@Override
+				public void keyReleased(KeyEvent evt) {
+				}
+
+				void action(KeyEvent evt) throws IOException {
+					if (isIn(evt.getKeyCode(), KeyEvent.VK_RIGHT, KeyEvent.VK_KP_RIGHT, KeyEvent.VK_ENTER)) {
+						actionNext();
+					} else if (isIn(evt.getKeyCode(), KeyEvent.VK_LEFT, KeyEvent.VK_KP_LEFT, KeyEvent.VK_BACK_SPACE)) {
+						actionPrev();
+					} else if (isIn(evt.getKeyCode(), KeyEvent.VK_UP, KeyEvent.VK_KP_UP, KeyEvent.VK_ESCAPE)) {
+						actionUp();
+					} else if (isIn(evt.getKeyCode(), KeyEvent.VK_I)) {
+						actionInfo();
+					}
+
+				}
+			});
+		}
+
+		void actionInfo() throws IOException {
+			if (frameStateID == 1) {
+				if (fileIndex == filePaths.size()) {
+					System.out.println("(i) Target file=" + area.targetPath + ", Width=" + area.width + ", Height="
+							+ area.height);
+				} else {
+					System.out.println("(i) File=" + filePaths.get(fileIndex).toString() + ", polygons="
+							+ area.shapesCount + ", points=" + area.pointsCount + ", PenaltyPointsCountParam="
+							+ area.penaltyPointsCountParam);
+				}
+			}
+		}
+
+		boolean isIn(int val, int... args) {
+			for (int arg : args) {
+				if (val == arg) {
+					return true;
+				}
+			}
+			return false;
+		}
+
+		ActionListener btnStartActionListener = new ActionListener() {
+			public void actionPerformed(ActionEvent actionEvent) {
+				try {
+					actionFirstImage();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		};
+
 	}
 
 }

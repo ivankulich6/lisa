@@ -5,3 +5,4 @@ bin
 testdata/*
 !testdata/readme
 !testdata/diffIncIfMethodsCompareTest2.shapes
+!testdata/puzzles

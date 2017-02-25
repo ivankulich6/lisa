@@ -274,13 +274,14 @@ public class AreaPixel {
 		return (int) Math.round(255 * rgb1);
 	}
 
-	public int getRgbInt() {
-		int rgbm[] = { getRgb1Int(this.rgb[0]), getRgb1Int(this.rgb[1]), getRgb1Int(this.rgb[2]) };
+	public int getRgbInt(double rgb[]) {
+		int rgbm[] = { getRgb1Int(rgb[0]), getRgb1Int(rgb[1]), getRgb1Int(rgb[2]) };
 		return Utils.getRgbInt(rgbm);
 	}
 
-	// IDEA: This seems to be the bottleneck of the whole computation. If you
-	// can write this faster, it may improve the speed quite significantly.
+	public int getRgbInt() {
+		return getRgbInt(this.rgb);
+	}
 
 	public static void convexCombine(double srcRgba[], double dstRgba[], double outRgba[]) {
 		double outAlpha = 1 - (1 - srcRgba[3]) * (1 - dstRgba[3]);

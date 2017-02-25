@@ -180,7 +180,7 @@ public class Test {
 		Area area = new Area(true);
 		Area.ccCount = 0;
 		area.randg = new Random(6543210);
-		area.penaltyPointsCountParam = 10000000000.0;
+		area.penaltyPointsCountParam = 1.0e-5;
 		area.setTarget("women_small.jpg", withReducer);
 		int cnt = 0;
 		String sMsg = "Starting test diffIncIfMethodsCompareTest1, method = " + method.toString();
@@ -207,7 +207,7 @@ public class Test {
 		// Diff2: regenerated whole area diff, merging of transparent
 		// colors by imported Graphics (fillPolygon)
 		sb.append("\nccCount=" + Area.ccCount);
-		area.shapesToFile("testdata/shapes_test_" + method.toString() + ".txt");
+		area.shapesToFile("testdata/diffIncIfMethodsCompareTest1_" + method.toString() + ".shapes");
 		System.out.println(sb.toString());
 		System.out.println("");
 		sb.insert(0, sMsg).append("\n\n");
@@ -235,8 +235,9 @@ public class Test {
 		Area area = new Area(true);
 		Area.ccCount = 0;
 		area.randg = new Random(6543210);
-		area.penaltyPointsCountParam = Double.MAX_VALUE;
+		area.penaltyPointsCountParam = 0;
 		area.setFromFile("testdata/diffIncIfMethodsCompareTest2.shapes", withReducer);
+		area.setPenaltyPointsCountParam(0);
 		int cnt = 0;
 		String sMsg = "Starting test diffIncIfMethodsCompareTest2, method = " + method.toString();
 		System.out.print(sMsg);

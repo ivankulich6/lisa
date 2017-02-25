@@ -111,7 +111,7 @@ public class Area {
 			mutation = new Mutation();
 			temp = 1;
 			randg = new Random();
-			penaltyPointsCountParam = 10000000000.0;
+			penaltyPointsCountParam = 1.e-5;
 			mutationsTotal = 0;
 			mutationsAccepted = 0;
 			mutationsAdd = 0;
@@ -120,7 +120,7 @@ public class Area {
 			cntRandomChange = 0;
 		}
 	}
-
+	
 	public void setTarget(String targetPath, boolean withReducer) throws IOException {
 		useShapesColorsReducers = withReducer;
 		this.targetPath = targetPath;
@@ -148,6 +148,11 @@ public class Area {
 			}
 		}
 		addeDiff = diff();
+		diff = penaltyShape(addeDiff, pointsCount);
+	}
+	
+	public void setPenaltyPointsCountParam(double value){
+		penaltyPointsCountParam = value;
 		diff = penaltyShape(addeDiff, pointsCount);
 	}
 
@@ -469,7 +474,8 @@ public class Area {
 	}
 
 	private double penaltyPointsCount(int pointsCount) {
-		return (double) pointsCount * (double) pointsCount / penaltyPointsCountParam;
+		double p = (double) pointsCount * penaltyPointsCountParam;
+		return p * p;
 	}
 
 	public double penaltyRgb(double addeDiff) {
@@ -642,10 +648,10 @@ public class Area {
 		}
 		double newAddeDiff = addeDiff + diffIncIfReplaced(mutation.oldShape, mutation.newShape, method);
 		double newDiff = penaltyShape(newAddeDiff, mutation.pointsCount);
-		// newDiff < d -> vzdy true
-		// newDiff - d = temp -> akceptujem so sancou e^-1
-		// newDiff - d = 2temp -> akceptujem so sancou e^-2
-		// if (randg.nextDouble() < Math.exp(- (newDiff - d) / temp)) {
+		// newDiff < diff -> vzdy true
+		// newDiff - diff = temp -> akceptujem so sancou e^-1
+		// newDiff - diff = 2temp -> akceptujem so sancou e^-2
+		// if (randg.nextDouble() < Math.exp(- (newDiff - diff) / temp)) {
 		if (newDiff < diff) {
 			if (newDiff - diff < -0.00001) {
 				temp *= 0.5;
@@ -737,6 +743,7 @@ public class Area {
 		BufferedWriter writer = null;
 		try {
 			File outFile = new File(sFile);
+			outFile.getParentFile().mkdirs();
 			StringBuilder sb = Utils.ShapesToSb(this);
 			// System.out.println(outFile.getCanonicalPath());
 			writer = new BufferedWriter(new FileWriter(outFile));
@@ -754,14 +761,17 @@ public class Area {
 	}
 
 	public void setFromFile(String sFile, boolean withReducer) {
-		Path wiki_path = Paths.get(sFile);
+		setFromFile(sFile, true, withReducer);
+	}
+
+	public void setFromFile(String sFile, boolean initPixels, boolean withReducer) {
+		Path path = Paths.get(sFile);
 		Charset charset = Charset.forName("UTF-8");
 		List<String> lines = null;
-		String targetPath = null;
 		int dataWidth = -1;
 		int dataHeight = -1;
 		int shapesCount = -1;
-		int dataPointsCount = 0;
+		int dataPointsCount = -1;
 		double shapeData[][][] = null;
 		int nLine = 0;
 		int currIndex = 0;
@@ -773,16 +783,28 @@ public class Area {
 		mutationsRemove = 0;
 		mutationsReplace = 0;
 		try {
-			lines = Files.readAllLines(wiki_path, charset);
+			lines = Files.readAllLines(path, charset);
 			for (String line : lines) {
 				++nLine;
 				String keyVal[] = Utils.decodeKeyVal(line);
-				if (keyVal[0].equalsIgnoreCase("TargetPath")) {
+				if (keyVal[0].length() >= 6 && keyVal[0].substring(0, 6).equalsIgnoreCase("Shape_")) {
+					assert shapesCount > 0 : errTitle + "Invalid or missing ShapesCount before line " + nLine;
+					int index = Integer.parseInt(keyVal[0].substring(6));
+					assert index == currIndex && shapesCount > 0 && index < shapesCount : errTitle
+							+ "Invalid sequence.";
+					currIndex++;
+					shapeData[index] = Utils.decodeShapeData(keyVal[1]);
+					assert null != shapeData[index] : errTitle + "Invalid shape format, sequence =" + index;
+				} else if (keyVal[0].equalsIgnoreCase("TargetPath")) {
 					targetPath = keyVal[1];
 				} else if (keyVal[0].equalsIgnoreCase("Width")) {
 					dataWidth = Integer.parseInt(keyVal[1]);
 				} else if (keyVal[0].equalsIgnoreCase("Height")) {
 					dataHeight = Integer.parseInt(keyVal[1]);
+				} else if (keyVal[0].equalsIgnoreCase("PenaltyPointsCountParam")) {
+					penaltyPointsCountParam = Double.parseDouble(keyVal[1]);
+				} else if (keyVal[0].equalsIgnoreCase("PointsCount")) {
+					dataPointsCount = Integer.parseInt(keyVal[1]);
 				} else if (keyVal[0].equalsIgnoreCase("DistancePerPixel")) {
 				} else if (keyVal[0].equalsIgnoreCase("mutationsTotal")) {
 					mutationsTotal = Integer.parseInt(keyVal[1]);
@@ -797,27 +819,18 @@ public class Area {
 				} else if (keyVal[0].equalsIgnoreCase("ShapesCount")) {
 					shapesCount = Integer.parseInt(keyVal[1]);
 					shapeData = new double[shapesCount][][];
-				} else if (keyVal[0].substring(0, 6).equalsIgnoreCase("Shape_")) {
-					assert shapesCount > 0 : errTitle + "Invalid or missing ShapesCount before line " + nLine;
-					int index = Integer.parseInt(keyVal[0].substring(6));
-					assert index == currIndex && shapesCount > 0 && index < shapesCount : errTitle
-							+ "Invalid sequence.";
-					currIndex++;
-					shapeData[index] = Utils.decodeShapeData(keyVal[1]);
-					assert null != shapeData[index] : errTitle + "Invalid shape format, sequence =" + index;
 				} else {
-					assert false : errTitle + "Invalid format in line " + nLine;
+					assert false : errTitle + "Unknown or missing keyword in line " + nLine;
 				}
 			}
 			assert targetPath != null : errTitle + "Missing TargetPath.";
 			assert dataWidth > 0 : errTitle + "Invalid Width.";
 			assert dataHeight > 0 : errTitle + "Invalid Height.";
 			assert currIndex == shapesCount : errTitle + "Missing shape after line " + nLine;
-			setTarget(targetPath, withReducer);
-			assert width == dataWidth && height == dataHeight : errTitle + "Shape/Target dimemsions mismatch" + nLine;
 
 			this.shapesCount = shapesCount;
 			shapes = new Shape[shapesCount];
+			pointsCount = 0;
 			for (int j = 0; j < shapesCount; j++) {
 				double shapeData1[][] = shapeData[j];
 				assert shapeData1.length >= 4 : errTitle + "Missing data in shape " + j;
@@ -832,25 +845,34 @@ public class Area {
 				}
 				shape.order = j;
 				int nPoints = shapeData1.length - 1;
-				dataPointsCount += nPoints;
+				pointsCount += nPoints;
 				shape.points = new int[nPoints][];
 				for (int k = 0; k < nPoints; k++) {
 					assert shapeData1[k + 1].length == 2 : errTitle + "Invalid points data in shape " + j;
 					shape.points[k] = new int[2];
 					for (int l = 0; l < 2; l++) {
 						int coord = (int) Math.round(shapeData1[k + 1][l]);
-						assert coord >= 0 && ((l == 0 && coord <= width) || (l == 1 && coord <= height)) : errTitle
+						assert coord >= 0 && ((l == 0 && coord <= dataWidth) || (l == 1 && coord <= dataHeight)) : errTitle
 								+ "Point out of range in shape " + j;
 						shape.points[k][l] = coord;
 					}
 				}
 
 			}
-			refreshPixelsByShapes(withReducer);
-			gOrder = shapesCount;
-			pointsCount = dataPointsCount;
-			addeDiff = diff();
-			diff = diffTest(addeDiff);
+			assert dataPointsCount == -1 || dataPointsCount == pointsCount : errTitle
+					+ "PointsCount does not match shapes data";
+			if (initPixels) {
+				setTarget(targetPath, withReducer);
+				assert width == dataWidth && height == dataHeight : errTitle + "Shape/Target dimemsions mismatch"
+						+ nLine;
+				refreshPixelsByShapes(withReducer);
+				gOrder = shapesCount;
+				addeDiff = diff();
+				diff = diffTest(addeDiff);
+			} else {
+				width = dataWidth;
+				height = dataHeight;
+			}
 
 		} catch (IOException e) {
 			System.out.println(e);

@@ -2,26 +2,26 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
-
 import javax.swing.JFrame;
 
 public class Main {
 
 	JFrame mainFrame;
 	DrawingPanel drawing;
+
 	boolean gWindowClosing = false;
 
 	private void prepareGUI(int width, int height) throws IOException {
 		mainFrame = new JFrame("Java Swing Examples");
-		// mainFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		mainFrame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 		mainFrame.setSize(width, height);
 		drawing = new DrawingPanel();
+
 		mainFrame.add(drawing);
 		mainFrame.setVisible(true);
 		mainFrame.addWindowListener(new WindowAdapter() {
 			public void windowClosing(WindowEvent we) {
-				System.out.println("mainFrame is closing");
+				System.out.println("\nmainFrame is closing");
 				gWindowClosing = true;
 			}
 		});
@@ -30,8 +30,22 @@ public class Main {
 	public static void main(String[] args) throws IOException {
 		System.out.println("Hello RbTree");
 		Main p = new Main();
-		p.run();
+		// p.run();
+		p.run2();
+		// p.run3();
 		// p.runTests();
+	}
+
+	public void run2() throws IOException {
+		new Utils.ImageViewer("testdata/puzzles");
+	}
+
+	public void run3() throws IOException {
+		// Arguments: target, result dir, num. of res. files, first file
+		// penalty, penalty quotient, saving interval.
+		// Arguments num. of files and penalties are ignored, if some shapes
+		// files already exist in result directory.
+		Utils.polygonize("testdata/puzzles/castle001.jpg", "testdata/puzzles/puzzle2", 5, 0.001, 0.1, 10000);
 	}
 
 	public void run() throws IOException {
@@ -39,10 +53,10 @@ public class Main {
 		BufferedImage img;
 
 		Area area = new Area(true);
-		area.penaltyPointsCountParam = 10000000.0;
 		boolean withReducer = false;
-		area.setTarget("women_small.jpg", withReducer);
-		// area.setFromFile("testdata/women_small_100.shapes", withReducer);
+		area.setTarget("women.jpg", withReducer);
+		// area.setFromFile("testdata/women_test.shapes", withReducer);
+		area.setPenaltyPointsCountParam(3.0e-3);
 		prepareGUI(area.width, area.height);
 		int cnt = 0;
 		int cntSuccess = 0;
@@ -54,7 +68,6 @@ public class Main {
 		while (true) {
 			cnt++;
 			boolean success = area.doRandomChange(Area.DiffIncIfMethod.ITERATE);
-			// System.out.print(area.mutationType);
 			if (success) {
 				System.out.print("+");
 				cntSuccess++;
@@ -74,9 +87,6 @@ public class Main {
 				// Diff: incremental diff, own merging of transparent colors.
 
 			}
-			// if (cnt >= 10000) {
-			// gWindowClosing = true;
-			// }
 
 			if (gWindowClosing) {
 				long stopTime = System.currentTimeMillis();
@@ -97,7 +107,7 @@ public class Main {
 						+ area.getAvgNumOfShapesPerPixel());
 				// Diff2: regenerated whole area diff, merging of transparent
 				// colors by imported Graphics (fillPolygon)
-				area.shapesToFile("testdata/women_small_100.shapes");
+				area.shapesToFile("testdata/women_test.shapes");
 				System.exit(0);
 				break;
 			}
