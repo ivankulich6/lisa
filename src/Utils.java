@@ -495,8 +495,8 @@ public class Utils {
 			boolean taskDone = false;
 			while (true) {
 				cnt++;
-				boolean success = area.doRandomChange(Area.DiffIncIfMethod.ITERATE);
-				if (success) {
+				int success = area.doRandomChange(Area.DiffIncIfMethod.ITERATE);
+				if (success > 0) {
 					System.out.print("+");
 					cntSuccess++;
 					if (cntSuccess % 10 == 0 || cnt % 100 == 0) {
@@ -748,9 +748,10 @@ public class Utils {
 					System.out.println("(i) Target file=" + area.targetPath + ", Width=" + area.width + ", Height="
 							+ area.height);
 				} else {
+					area.setTarget(area.targetPath, false);
 					System.out.println("(i) File=" + filePaths.get(fileIndex).toString() + ", polygons="
-							+ area.shapesCount + ", points=" + area.pointsCount + ", PenaltyPointsCountParam="
-							+ area.penaltyPointsCountParam);
+							+ area.shapesCount + ", points=" + area.pointsCount + ",\nPenaltyPointsCountParam="
+							+ area.penaltyPointsCountParam + ", DistancePerPixel="	+ getMinMaxColorDistanceToTargetPerPixel(area));
 				}
 			}
 		}

@@ -57,7 +57,12 @@ public class Area {
 	int mutaPixelsCount;
 	private double addeDiff; // additive difference
 	double diff;
+	double diffMin;
 	double temp;
+	Shape[] shapesMin;
+	int shapesCountMin;
+	int pointsCountMin;
+	boolean minShapesToSave;
 	Random randg;
 	boolean useShapesColorsReducers;
 	double penaltyPointsCountParam;
@@ -118,9 +123,11 @@ public class Area {
 			mutationsRemove = 0;
 			mutationsReplace = 0;
 			cntRandomChange = 0;
+			diffMin = Double.MAX_VALUE;
+			minShapesToSave = false;
 		}
 	}
-	
+
 	public void setTarget(String targetPath, boolean withReducer) throws IOException {
 		useShapesColorsReducers = withReducer;
 		this.targetPath = targetPath;
@@ -149,9 +156,10 @@ public class Area {
 		}
 		addeDiff = diff();
 		diff = penaltyShape(addeDiff, pointsCount);
+		diffMin = diff;
 	}
-	
-	public void setPenaltyPointsCountParam(double value){
+
+	public void setPenaltyPointsCountParam(double value) {
 		penaltyPointsCountParam = value;
 		diff = penaltyShape(addeDiff, pointsCount);
 	}
@@ -332,6 +340,8 @@ public class Area {
 			mutaPixelsWork[currPos++] = currCount;
 			shape.pixinds = new int[currPos];
 			System.arraycopy(mutaPixelsWork, 0, shape.pixinds, 0, currPos);
+		} else {
+			shape.pixinds = new int[0];
 		}
 	}
 
@@ -546,6 +556,27 @@ public class Area {
 		return res;
 	}
 
+	private Shape[] copyShapes(Shape shapesSrc[], Shape shapesDst[]) {
+		shapesDst = new Shape[shapesSrc.length];
+		System.arraycopy(shapesSrc, 0, shapesDst, 0, shapesSrc.length);
+		return shapesDst;
+	}
+
+	void saveShapesMin() {
+		shapesMin = copyShapes(shapes, shapesMin);
+		shapesCountMin = shapesCount;
+		pointsCountMin = pointsCount;
+	}
+
+	void restoreShapesMin() {
+		if (shapesMin == null) {
+			return;
+		}
+		shapes = copyShapes(shapesMin, shapes);
+		shapesCount = shapesCountMin;
+		pointsCount = pointsCountMin;
+	}
+
 	private void getRandomMutation() {
 		int opcode = randg.nextInt(100);
 		mutation.oldShape = null;
@@ -636,25 +667,49 @@ public class Area {
 		}
 	}
 
-	public boolean doRandomChange(DiffIncIfMethod method) {
+	public int doRandomChange(DiffIncIfMethod method) {
+		return doRandomChange(false, method);
+	}
 
+	public int doRandomChange(boolean isLast, DiffIncIfMethod method) {
 		cntRandomChange++;
 		mutationsTotal++;
-
-		temp = Math.max(temp, Math.pow(10, -10));
+		if (temp > 0) {
+			temp = Math.min(Math.max(temp, Math.pow(10, -10)), 0.4 * Double.MAX_VALUE);
+		}
 		getRandomMutation();
 		if (mutation.type == 0) {
-			return false;
+			return 0;
 		}
 		double newAddeDiff = addeDiff + diffIncIfReplaced(mutation.oldShape, mutation.newShape, method);
 		double newDiff = penaltyShape(newAddeDiff, mutation.pointsCount);
 		// newDiff < diff -> vzdy true
 		// newDiff - diff = temp -> akceptujem so sancou e^-1
 		// newDiff - diff = 2temp -> akceptujem so sancou e^-2
-		// if (randg.nextDouble() < Math.exp(- (newDiff - diff) / temp)) {
+		boolean success = false;
+		int ret = 0;
 		if (newDiff < diff) {
+			success = true;
+			ret = 2;
+		} else if (temp > 0 && randg.nextDouble() < Math.exp(-(newDiff - diff) / temp)) {
+			success = true;
+		}
+		if (success) {
+			if (newDiff < diffMin) {
+				diffMin = newDiff;
+				minShapesToSave = true;
+				ret = 3;
+			} else if (newDiff >= diff) {
+				ret = 1;
+				if (minShapesToSave) {
+					saveShapesMin();
+					minShapesToSave = false;
+					//System.out.print("s");
+				}
+			}
 			if (newDiff - diff < -0.00001) {
-				temp *= 0.5;
+				// temp *= 0.5;
+				temp *= 1 - 1.e-2;
 			}
 			replaceShape(mutation.oldShape, mutation.newShape);
 			shapes = alterShapes(mutation.index, mutation.oldShape, mutation.newShape);
@@ -671,11 +726,19 @@ public class Area {
 			} else {
 				mutationsReplace++;
 			}
-			return true;
 		} else {
-			temp *= 1.002;
-			return false;
+			// temp *= 1.002;
+			 temp *= 1.0 + 1.e-7;
 		}
+		if (isLast) {
+			ret += 10;
+			if (minShapesToSave) {
+				saveShapesMin();
+				minShapesToSave = false;
+				System.out.print("s");
+			}
+		}
+		return ret;
 	}
 
 	public Shape[] extractShapes() {
@@ -869,9 +932,12 @@ public class Area {
 				gOrder = shapesCount;
 				addeDiff = diff();
 				diff = diffTest(addeDiff);
+				diffMin = diff;
+				saveShapesMin();
 			} else {
 				width = dataWidth;
 				height = dataHeight;
+				diffMin = Double.MAX_VALUE;
 			}
 
 		} catch (IOException e) {

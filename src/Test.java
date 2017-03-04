@@ -182,6 +182,7 @@ public class Test {
 		area.randg = new Random(6543210);
 		area.penaltyPointsCountParam = 1.0e-5;
 		area.setTarget("women_small.jpg", withReducer);
+		area.temp = 0;
 		int cnt = 0;
 		String sMsg = "Starting test diffIncIfMethodsCompareTest1, method = " + method.toString();
 		System.out.print(sMsg);

@@ -30,9 +30,9 @@ public class Main {
 	public static void main(String[] args) throws IOException {
 		System.out.println("Hello RbTree");
 		Main p = new Main();
-		// p.run();
-		p.run2();
-		// p.run3();
+		//p.run();
+		//p.run2();
+		p.run3();
 		// p.runTests();
 	}
 
@@ -45,7 +45,7 @@ public class Main {
 		// penalty, penalty quotient, saving interval.
 		// Arguments num. of files and penalties are ignored, if some shapes
 		// files already exist in result directory.
-		Utils.polygonize("testdata/puzzles/castle001.jpg", "testdata/puzzles/puzzle2", 5, 0.001, 0.1, 10000);
+		Utils.polygonize("testdata/puzzles/kittens001.jpg", "testdata/puzzles/puzzle3", 5, 0.005, 0.1, 10000);
 	}
 
 	public void run() throws IOException {
@@ -54,9 +54,10 @@ public class Main {
 
 		Area area = new Area(true);
 		boolean withReducer = false;
-		area.setTarget("women.jpg", withReducer);
-		// area.setFromFile("testdata/women_test.shapes", withReducer);
-		area.setPenaltyPointsCountParam(3.0e-3);
+		//area.setTarget("testdata/puzzles/castle001.jpg", withReducer);
+		String outFile = "testdata/annealing/castle001_test.shapes";
+		area.setFromFile(outFile, withReducer);
+		area.setPenaltyPointsCountParam(0.001);
 		prepareGUI(area.width, area.height);
 		int cnt = 0;
 		int cntSuccess = 0;
@@ -64,14 +65,20 @@ public class Main {
 		drawing.draw(img);
 
 		long startTime = System.currentTimeMillis();
-
-		while (true) {
+		int ret;
+		boolean cont = true;
+		area.temp = 1;
+		while (cont) {
 			cnt++;
-			boolean success = area.doRandomChange(Area.DiffIncIfMethod.ITERATE);
-			if (success) {
-				System.out.print("+");
-				cntSuccess++;
-				if (cnt == 1 || cntSuccess % 10 == 0 || cnt % 100 == 0) {
+			ret = area.doRandomChange(gWindowClosing, Area.DiffIncIfMethod.ITERATE);
+			if (ret >= 10) {
+				cont = false;
+				ret -= 10;
+			}
+			if (ret > 0) {
+				System.out.print(ret);
+				// cntSuccess++;
+				if (cnt == 1 || ret == 3) {
 					img = Utils.drawArea(area);
 					drawing.draw(img);
 				}
@@ -79,39 +86,34 @@ public class Main {
 			if (cnt % 100 == 0) {
 				double diffAll = area.diffTest();
 				System.out.println("");
-				System.out.println("Diff=" + area.diff + ", cnt=" + cnt + ", cntAll=" + area.mutationsTotal
-						+ ", polygons=" + area.shapesCount + ", temp=" + area.temp);
+				System.out.println("DiffMin=" + area.diffMin + ", Diff=" + area.diff + ", cnt=" + cnt + ", cntAll="
+						+ area.mutationsTotal + ", polygons=" + area.shapesCount + ", temp=" + area.temp);
 				// Incrementally computed difference should fit whole area
 				// recomputed difference diffAll.
 				assert Math.abs(area.diff - diffAll) < 1.e-12;
 				// Diff: incremental diff, own merging of transparent colors.
 
 			}
-
-			if (gWindowClosing) {
-				long stopTime = System.currentTimeMillis();
-				long elapsedTime = stopTime - startTime;
-				System.out.println("");
-				System.out.println("elapsedTime = " + elapsedTime + " milliseconds");
-				Shape[] exShapes = area.extractShapes();
-				assert exShapes.length == area.shapesCount;
-				assert area.recalcPointsCount(exShapes) == area.pointsCount;
-				System.out.println("Diff=" + area.diff + ", cnt=" + cnt + ", cntAll=" + area.mutationsTotal
-						+ ", polygons=" + area.shapesCount + ", temp=" + area.temp);
-				shapesImg = Utils.drawShapes(area);
-				drawing.draw(shapesImg);
-				double diffAll = area.diffTest();
-				double diff2 = area.diffTest(Utils.addeDiff(shapesImg, area.target));
-				System.out.println("DiffAll=" + diffAll + ", Diff2=" + diff2 + ", Distance="
-						+ Utils.getMinMaxColorDistanceToTargetPerPixel(area) + ", AvgPolyPerPixel="
-						+ area.getAvgNumOfShapesPerPixel());
-				// Diff2: regenerated whole area diff, merging of transparent
-				// colors by imported Graphics (fillPolygon)
-				area.shapesToFile("testdata/women_test.shapes");
-				System.exit(0);
-				break;
-			}
 		}
+
+		long stopTime = System.currentTimeMillis();
+		long elapsedTime = stopTime - startTime;
+		System.out.println("");
+		System.out.println("elapsedTime = " + elapsedTime + " milliseconds");
+
+		area.restoreShapesMin();
+
+		Shape[] exShapes = area.extractShapes();
+		assert exShapes.length == area.shapesCount;
+		assert area.recalcPointsCount(exShapes) == area.pointsCount;
+
+		System.out.println("DiffMin=" + area.diffMin + "cnt=" + cnt + ", cntAll=" + area.mutationsTotal + ", polygons="
+				+ area.shapesCount + ", temp=" + area.temp);
+		shapesImg = Utils.drawShapes(area);
+		drawing.draw(shapesImg);
+		area.shapesToFile(outFile);
+		new Utils.ImageViewer("testdata");
+		// System.exit(0);
 	}
 
 	public void runTests() throws IOException {
