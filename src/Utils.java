@@ -149,6 +149,7 @@ public class Utils {
 		sb.append("Height: ").append(area.height).append("\n");
 		sb.append("PenaltyPointsCountParam: ").append(area.penaltyPointsCountParam).append("\n");
 		sb.append("PointsCount: ").append(area.pointsCount).append("\n");
+		sb.append("Temperature: ").append(area.temp).append("\n");
 		sb.append("DistancePerPixel: ").append(getMinMaxColorDistanceToTargetPerPixel(area)).append("\n");
 		sb.append("MutationsTotal: ").append(area.mutationsTotal).append("\n");
 		sb.append("MutationsAccepted: ").append(area.mutationsAccepted).append("\n");

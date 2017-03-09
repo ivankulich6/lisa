@@ -57,15 +57,16 @@ public class Area {
 	int mutaPixelsCount;
 	private double addeDiff; // additive difference
 	double diff;
-	double diffMin;
-	double temp;
-	Shape[] shapesMin;
-	int shapesCountMin;
-	int pointsCountMin;
-	boolean minShapesToSave;
 	Random randg;
 	boolean useShapesColorsReducers;
 	double penaltyPointsCountParam;
+	//annealing support
+	double temp;
+	double diffMin;
+	private boolean shapesAreMin;
+	Shape[] shapesMin;
+	int shapesCountMin;
+	int pointsCountMin;
 	// mutations counters
 	public int mutationsTotal;
 	public int mutationsAccepted;
@@ -114,20 +115,20 @@ public class Area {
 			pointsCount = 0;
 			gOrder = 0;
 			mutation = new Mutation();
-			temp = 1;
 			randg = new Random();
 			penaltyPointsCountParam = 1.e-5;
+			shapesAreMin = false;
+			temp = -1;
+			diffMin = 0;
 			mutationsTotal = 0;
 			mutationsAccepted = 0;
 			mutationsAdd = 0;
 			mutationsRemove = 0;
 			mutationsReplace = 0;
 			cntRandomChange = 0;
-			diffMin = Double.MAX_VALUE;
-			minShapesToSave = false;
 		}
 	}
-
+	
 	public void setTarget(String targetPath, boolean withReducer) throws IOException {
 		useShapesColorsReducers = withReducer;
 		this.targetPath = targetPath;
@@ -156,7 +157,9 @@ public class Area {
 		}
 		addeDiff = diff();
 		diff = penaltyShape(addeDiff, pointsCount);
-		diffMin = diff;
+		if(temp >= 0){
+			diffMin = diff;
+		}
 	}
 
 	public void setPenaltyPointsCountParam(double value) {
@@ -674,7 +677,7 @@ public class Area {
 	public int doRandomChange(boolean isLast, DiffIncIfMethod method) {
 		cntRandomChange++;
 		mutationsTotal++;
-		if (temp > 0) {
+		if (temp >= 0) {
 			temp = Math.min(Math.max(temp, Math.pow(10, -10)), 0.4 * Double.MAX_VALUE);
 		}
 		getRandomMutation();
@@ -690,26 +693,28 @@ public class Area {
 		int ret = 0;
 		if (newDiff < diff) {
 			success = true;
-			ret = 2;
+			ret = (temp < 0 ? 3 : 2);
 		} else if (temp > 0 && randg.nextDouble() < Math.exp(-(newDiff - diff) / temp)) {
 			success = true;
 		}
 		if (success) {
 			if (newDiff < diffMin) {
 				diffMin = newDiff;
-				minShapesToSave = true;
+				shapesAreMin = true;
 				ret = 3;
 			} else if (newDiff >= diff) {
 				ret = 1;
-				if (minShapesToSave) {
+				if (shapesAreMin) {
 					saveShapesMin();
-					minShapesToSave = false;
+					shapesAreMin = false;
 					//System.out.print("s");
 				}
 			}
 			if (newDiff - diff < -0.00001) {
-				// temp *= 0.5;
-				temp *= 1 - 1.e-2;
+				if(temp > 0){
+					// temp *= 0.5;
+					temp *= 1 - 1.e-2;
+				}
 			}
 			replaceShape(mutation.oldShape, mutation.newShape);
 			shapes = alterShapes(mutation.index, mutation.oldShape, mutation.newShape);
@@ -728,14 +733,15 @@ public class Area {
 			}
 		} else {
 			// temp *= 1.002;
-			 temp *= 1.0 + 1.e-7;
+			if(temp > 0){
+				temp *= 1.0 + 1.e-7;
+			}
 		}
 		if (isLast) {
-			ret += 10;
-			if (minShapesToSave) {
+			if (shapesAreMin) {
 				saveShapesMin();
-				minShapesToSave = false;
-				System.out.print("s");
+				shapesAreMin = false;
+				//System.out.print("s");
 			}
 		}
 		return ret;
@@ -839,6 +845,7 @@ public class Area {
 		int nLine = 0;
 		int currIndex = 0;
 		String errTitle = "Error reading shapes: ";
+		temp = -1;
 		useShapesColorsReducers = withReducer;
 		mutationsTotal = 0;
 		mutationsAccepted = 0;
@@ -869,6 +876,8 @@ public class Area {
 				} else if (keyVal[0].equalsIgnoreCase("PointsCount")) {
 					dataPointsCount = Integer.parseInt(keyVal[1]);
 				} else if (keyVal[0].equalsIgnoreCase("DistancePerPixel")) {
+				} else if (keyVal[0].equalsIgnoreCase("Temperature")) {
+					temp = Double.parseDouble(keyVal[1]);
 				} else if (keyVal[0].equalsIgnoreCase("mutationsTotal")) {
 					mutationsTotal = Integer.parseInt(keyVal[1]);
 				} else if (keyVal[0].equalsIgnoreCase("mutationsAccepted")) {
@@ -924,6 +933,13 @@ public class Area {
 			}
 			assert dataPointsCount == -1 || dataPointsCount == pointsCount : errTitle
 					+ "PointsCount does not match shapes data";
+			
+			if(temp < 0){
+				temp = -1;
+				diffMin = 0;
+			}else{
+				diffMin = Double.MAX_VALUE;
+			}
 			if (initPixels) {
 				setTarget(targetPath, withReducer);
 				assert width == dataWidth && height == dataHeight : errTitle + "Shape/Target dimemsions mismatch"
@@ -932,12 +948,16 @@ public class Area {
 				gOrder = shapesCount;
 				addeDiff = diff();
 				diff = diffTest(addeDiff);
-				diffMin = diff;
-				saveShapesMin();
+				if(temp >= 0){
+					diffMin = diff;
+					saveShapesMin();
+				}
 			} else {
 				width = dataWidth;
 				height = dataHeight;
-				diffMin = Double.MAX_VALUE;
+				if(temp >= 0){
+					diffMin = Double.MAX_VALUE;
+				}
 			}
 
 		} catch (IOException e) {
