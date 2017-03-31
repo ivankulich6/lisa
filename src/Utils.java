@@ -149,7 +149,7 @@ public class Utils {
 		sb.append("Height: ").append(area.height).append("\n");
 		sb.append("PenaltyPointsCountParam: ").append(area.penaltyPointsCountParam).append("\n");
 		sb.append("PointsCount: ").append(area.pointsCount).append("\n");
-		sb.append("Temperature: ").append(area.temp).append("\n");
+		sb.append("Temperature: ").append(area.temperature).append("\n");
 		sb.append("DistancePerPixel: ").append(getMinMaxColorDistanceToTargetPerPixel(area)).append("\n");
 		sb.append("MutationsTotal: ").append(area.mutationsTotal).append("\n");
 		sb.append("MutationsAccepted: ").append(area.mutationsAccepted).append("\n");
@@ -440,32 +440,24 @@ public class Utils {
 		public void polygonize() throws IOException {
 			double successQuotients[] = new double[filesCount];
 			Arrays.fill(successQuotients, 1);
-			double successQuotientStop = 1;
 			nRepeat = 0;
-			while (successQuotientStop > 0) {
+			while (true) {
 				boolean done = true;
-				boolean changeStop = true;
 				nRepeat++;
 				for (int j = 0; j < filesCount; j++) {
 					if (successQuotients[j] >= (double) 0.0005) {
 						done = false;
-						successQuotients[j] = polygonize1(j, minMutations, successQuotientStop);
-						if (successQuotients[j] > successQuotientStop) {
-							changeStop = false;
-						}
+						successQuotients[j] = polygonize1(j, minMutations);
 					}
 				}
 				if (done) {
 					break;
 				}
-				if (changeStop) {
-					successQuotientStop *= 0.5;
-				}
 			}
 			System.exit(0);
 		}
 
-		public double polygonize1(int index, int cntMin, double successQuotientStop) throws IOException {
+		public double polygonize1(int index, int cntMin) throws IOException {
 			double successQuotient = 1;
 			String resultPath = filePaths.get(index);
 			Area area = new Area(true);
@@ -512,7 +504,7 @@ public class Utils {
 
 				}
 				successQuotient = (double) cntSuccess / (double) cnt;
-				if (cnt >= cntMin && successQuotient <= successQuotient) {
+				if (cnt >= cntMin) {
 					taskDone = true;
 				}
 				if (taskDone || windowClosing) {

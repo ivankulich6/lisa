@@ -34,7 +34,7 @@ public class Test {
 				if (v > 2 && v < 250) {
 					v -= (Math.sqrt(2) - 1); // making full decimal places
 				}
-				dValSrc[k][j] = v / (double) 255;
+				dValSrc[k][j] = v / 255;
 				fValSrc[k][j] = (float) dValSrc[k][j];
 			}
 		}
@@ -168,28 +168,66 @@ public class Test {
 
 	public static void diffIncIfMethodsCompareTest() throws IOException {
 		Utils.setNewLog("testdata/log_diffIncIfMethodsCompareTest.txt");
-		diffIncIfMethodsCompareTest1(Area.DiffIncIfMethod.ITERATE, false);
-		diffIncIfMethodsCompareTest1(Area.DiffIncIfMethod.RFT, true);
-		diffIncIfMethodsCompareTest1(Area.DiffIncIfMethod.PUTREM, true);
+		evolutionTest(Area.DiffIncIfMethod.ITERATE, false);
+		evolutionTest(Area.DiffIncIfMethod.RFT, true);
+		evolutionTest(Area.DiffIncIfMethod.PUTREM, true);
 		printMsgResultsFile();
 	}
 
-	public static void diffIncIfMethodsCompareTest1(Area.DiffIncIfMethod method, boolean withReducer)
-			throws IOException {
+	public static void annealingTest() throws IOException {
+		// Note: This tests just annealing support. Annealing in this example is
+		// successful only accidentaly. We do not know yet temperature changing
+		// strategy, which would give statistically better results than no
+		// annealing (temperature -1 or 0)
+		Utils.setNewLog("testdata/log_AnnealingTest.txt");
+		evolutionTest(Area.DiffIncIfMethod.ITERATE, false, 0, 1.0e-5, 5000);
+		evolutionTest(Area.DiffIncIfMethod.ITERATE, false, 0, 0.01, 50000);
+		evolutionTest(Area.DiffIncIfMethod.ITERATE, false, 1, 0.01, 50000);
+		printMsgResultsFile();
+	}
+
+	public static void evolutionTest(Area.DiffIncIfMethod method, boolean withReducer) throws IOException {
+		evolutionTest(method, withReducer, -1, 1.0e-5, 5000);
+	}
+
+	public static void evolutionTest(Area.DiffIncIfMethod method, boolean withReducer, double temperature,
+			double penaltyPointsCountParam, int mutationsCount) throws IOException {
 		BufferedImage shapesImg;
 		Area area = new Area(true);
 		Area.ccCount = 0;
 		area.randg = new Random(6543210);
-		area.penaltyPointsCountParam = 1.0e-5;
+		// area.randg = new Random(3543210);
+		area.penaltyPointsCountParam = penaltyPointsCountParam;
 		area.setTarget("women_small.jpg", withReducer);
-		area.temp = -1;
+		if (temperature <= 0) {
+			area.temperature = temperature;
+		}
 		int cnt = 0;
-		String sMsg = "Starting test diffIncIfMethodsCompareTest1, method = " + method.toString();
+		String sMsg;
+		if (temperature < 0) {
+			sMsg = "Starting test diffIncIfMethodsCompareTest1, method = " + method.toString();
+		} else {
+			sMsg = "Starting test annealingTest, temperature = " + temperature;
+		}
 		System.out.print(sMsg);
 		long startTime = System.currentTimeMillis();
-		while (cnt < 5000) {
-			cnt++;
-			area.doRandomChange(method);
+		if (temperature < 0) {
+			while (cnt < mutationsCount) {
+				cnt++;
+				area.doRandomChange(method);
+			}
+		} else {
+			int nSuccess = 1;
+			while (cnt < mutationsCount) {
+				cnt++;
+				if (cnt % 5000 == 0) {
+					System.out.print(".");
+				}
+				area.temperature = Math.pow(temperature * nSuccess / cnt, 3);
+				if (3 == area.doRandomChange(cnt == mutationsCount, method)) {
+					nSuccess++;
+				}
+			}
 		}
 		long stopTime = System.currentTimeMillis();
 		long elapsedTime = stopTime - startTime;
@@ -199,39 +237,54 @@ public class Test {
 		Shape[] exShapes = area.extractShapes();
 		assert exShapes.length == area.shapesCount;
 		assert area.recalcPointsCount(exShapes) == area.pointsCount;
-		sb.append("\nDiff=" + area.diff + ", cnt=" + cnt + ", polygons=" + area.shapesCount + ", temp=" + area.temp);
-		shapesImg = Utils.drawShapes(area);
-		double diffAll = area.diffTest();
-		double diff2 = area.diffTest(Utils.addeDiff(shapesImg, area.target));
-		double avgPolyPerPixel = area.getAvgNumOfShapesPerPixel();
-		sb.append("\nDiffAll=" + diffAll + " Diff2=" + diff2 + " AvgPolyPerPixel=" + avgPolyPerPixel);
-		// Diff2: regenerated whole area diff, merging of transparent
-		// colors by imported Graphics (fillPolygon)
+		sb.append("\nDiff=" + area.diff + ", cnt=" + cnt + ", polygons=" + area.shapesCount + ", temperature="
+				+ area.temperature);
+		double diffAll = 0, diff2 = 0, avgPolyPerPixel = 0;
+		if (temperature <= 0) {
+			shapesImg = Utils.drawShapes(area);
+			diffAll = area.diffTest();
+			diff2 = area.diffTest(Utils.addeDiff(shapesImg, area.target));
+			avgPolyPerPixel = area.getAvgNumOfShapesPerPixel();
+			sb.append("\nDiffAll=" + diffAll + " Diff2=" + diff2 + " AvgPolyPerPixel=" + avgPolyPerPixel);
+			// Diff2: regenerated whole area diff, merging of transparent
+			// colors by imported Graphics (fillPolygon)
+		}
+
 		sb.append("\nccCount=" + Area.ccCount);
-		area.shapesToFile("testdata/diffIncIfMethodsCompareTest1_" + method.toString() + ".shapes");
+		String anne = (temperature < 0 ? "NoAnne" : (temperature == 1 ? "Anne0" : "Anne1"));
+		area.shapesToFile("testdata/diffIncIfMethodsCompareTest1_" + method.toString() + "_" + anne + ".shapes");
 		System.out.println(sb.toString());
 		System.out.println("");
 		sb.insert(0, sMsg).append("\n\n");
 		Utils.log(sb);
 		// the next depends on implementation of getRandomShape,
 		// getRandomMutation, penaltyShape
-		assert area.shapesCount == 95;
-		assert Math.abs(area.diff - (double) 0.5343659179119827) < (double) 1.e-15;
-		assert Math.abs(diffAll - (double) 0.5343659179119827) < (double) 1.e-15;
-		assert Math.abs(diff2 - (double) 0.5334975342648108) < (double) 1.e-15;
-		assert Math.abs(avgPolyPerPixel - (double) 6.954266666666666) < (double) 1.e-15;
+		if (temperature <= 0 && penaltyPointsCountParam == 1.0e-5 && mutationsCount == 5000) {
+			assert area.shapesCount == 95;
+			assert Math.abs(area.diff - 0.5343659179119827) < 1.e-15;
+			assert Math.abs(diffAll - 0.5343659179119827) < 1.e-15;
+			assert Math.abs(diff2 - 0.5334975342648108) < 1.e-15;
+			assert Math.abs(avgPolyPerPixel - 6.954266666666666) < 1.e-15;
+		}
+		if (temperature == 0 && penaltyPointsCountParam == 0.01 && mutationsCount == 50000) {
+			assert area.shapesCount == 8;
+			assert Math.abs(area.diff - 0.40232216040004554) < 1.e-15;
+		}
+		if (temperature == 1 && penaltyPointsCountParam == 0.01 && mutationsCount == 50000) {
+			assert area.shapesCount == 7;
+			assert Math.abs(area.diff - 0.3569308075390611) < 1.e-15;
+		}
 	}
 
 	public static void diffIncIfMethodsCompareTest2() throws IOException {
 		String logFile = "testdata/log_diffIncIfMethodsCompareTest2.txt";
 		Utils.setNewLog(logFile);
-		diffIncIfMethodsCompareTest21(Area.DiffIncIfMethod.ITERATE, false);
-		diffIncIfMethodsCompareTest21(Area.DiffIncIfMethod.RFT, true);
+		evolutionTest2(Area.DiffIncIfMethod.ITERATE, false);
+		evolutionTest2(Area.DiffIncIfMethod.RFT, true);
 		printMsgResultsFile();
 	}
 
-	public static void diffIncIfMethodsCompareTest21(Area.DiffIncIfMethod method, boolean withReducer)
-			throws IOException {
+	public static void evolutionTest2(Area.DiffIncIfMethod method, boolean withReducer) throws IOException {
 		BufferedImage shapesImg;
 		Area area = new Area(true);
 		Area.ccCount = 0;
@@ -255,7 +308,8 @@ public class Test {
 		Shape[] exShapes = area.extractShapes();
 		assert exShapes.length == area.shapesCount;
 		assert area.recalcPointsCount(exShapes) == area.pointsCount;
-		sb.append("\nDiff=" + area.diff + ", cnt=" + cnt + ", polygons=" + area.shapesCount + ", temp=" + area.temp);
+		sb.append("\nDiff=" + area.diff + ", cnt=" + cnt + ", polygons=" + area.shapesCount + ", temperature="
+				+ area.temperature);
 		shapesImg = Utils.drawShapes(area);
 		double diffAll = area.diffTest();
 		double diff2 = area.diffTest(Utils.addeDiff(shapesImg, area.target));

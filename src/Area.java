@@ -35,6 +35,7 @@ public class Area {
 			name = s;
 		}
 
+		@Override
 		public String toString() {
 			return this.name;
 		}
@@ -60,10 +61,10 @@ public class Area {
 	Random randg;
 	boolean useShapesColorsReducers;
 	double penaltyPointsCountParam;
-	//annealing support
-	double temp;
+	// annealing support
+	double temperature;
 	double diffMin;
-	private boolean shapesAreMin;
+	private boolean needSaveShapesMin;
 	Shape[] shapesMin;
 	int shapesCountMin;
 	int pointsCountMin;
@@ -117,9 +118,9 @@ public class Area {
 			mutation = new Mutation();
 			randg = new Random();
 			penaltyPointsCountParam = 1.e-5;
-			shapesAreMin = false;
-			temp = -1;
-			diffMin = 0;
+			needSaveShapesMin = false;
+			temperature = -1;
+			diffMin = Double.MAX_VALUE;
 			mutationsTotal = 0;
 			mutationsAccepted = 0;
 			mutationsAdd = 0;
@@ -128,7 +129,7 @@ public class Area {
 			cntRandomChange = 0;
 		}
 	}
-	
+
 	public void setTarget(String targetPath, boolean withReducer) throws IOException {
 		useShapesColorsReducers = withReducer;
 		this.targetPath = targetPath;
@@ -157,7 +158,7 @@ public class Area {
 		}
 		addeDiff = diff();
 		diff = penaltyShape(addeDiff, pointsCount);
-		if(temp >= 0){
+		if (temperature >= 0) {
 			diffMin = diff;
 		}
 	}
@@ -487,7 +488,7 @@ public class Area {
 	}
 
 	private double penaltyPointsCount(int pointsCount) {
-		double p = (double) pointsCount * penaltyPointsCountParam;
+		double p = pointsCount * penaltyPointsCountParam;
 		return p * p;
 	}
 
@@ -509,8 +510,8 @@ public class Area {
 
 	private double diff() {
 		double diff = 0;
-		for (int j = 0; j < pixels.length; j++) {
-			diff += pixels[j].diff();
+		for (AreaPixel pixel : pixels) {
+			diff += pixel.diff();
 		}
 		return diff;
 	}
@@ -675,45 +676,52 @@ public class Area {
 	}
 
 	public int doRandomChange(boolean isLast, DiffIncIfMethod method) {
+		/*
+		 * return value: 0=change not accepted, 1=difference increased within
+		 * annealing limit, 2=difference decreased but not 3, 3=difference less
+		 * than current global minimum
+		 */
 		cntRandomChange++;
 		mutationsTotal++;
-		if (temp >= 0) {
-			temp = Math.min(Math.max(temp, Math.pow(10, -10)), 0.4 * Double.MAX_VALUE);
-		}
 		getRandomMutation();
 		if (mutation.type == 0) {
+			if (isLast && temperature >= 0) {
+				if (needSaveShapesMin) {
+					saveShapesMin();
+					needSaveShapesMin = false;
+				} else {
+					restoreShapesMin();
+				}
+			}
 			return 0;
 		}
 		double newAddeDiff = addeDiff + diffIncIfReplaced(mutation.oldShape, mutation.newShape, method);
 		double newDiff = penaltyShape(newAddeDiff, mutation.pointsCount);
 		// newDiff < diff -> vzdy true
-		// newDiff - diff = temp -> akceptujem so sancou e^-1
+		// newDiff - diff = temperature -> akceptujem so sancou e^-1
 		// newDiff - diff = 2temp -> akceptujem so sancou e^-2
 		boolean success = false;
 		int ret = 0;
 		if (newDiff < diff) {
 			success = true;
-			ret = (temp < 0 ? 3 : 2);
-		} else if (temp > 0 && randg.nextDouble() < Math.exp(-(newDiff - diff) / temp)) {
-			success = true;
+			ret = (temperature < 0 ? 3 : 2);
+		} else if (temperature > 0 && newDiff > diff) {
+			if (randg.nextDouble() < Math.exp(-(newDiff - diff) / temperature)) {
+				success = true;
+			}
 		}
 		if (success) {
-			if (newDiff < diffMin) {
-				diffMin = newDiff;
-				shapesAreMin = true;
-				ret = 3;
-			} else if (newDiff >= diff) {
-				ret = 1;
-				if (shapesAreMin) {
-					saveShapesMin();
-					shapesAreMin = false;
-					//System.out.print("s");
-				}
-			}
-			if (newDiff - diff < -0.00001) {
-				if(temp > 0){
-					// temp *= 0.5;
-					temp *= 1 - 1.e-2;
+			if (temperature >= 0) {
+				if (newDiff < diffMin) {
+					diffMin = newDiff;
+					needSaveShapesMin = true;
+					ret = 3;
+				} else if (newDiff >= diff) {
+					ret = 1;
+					if (needSaveShapesMin) {
+						saveShapesMin();
+						needSaveShapesMin = false;
+					}
 				}
 			}
 			replaceShape(mutation.oldShape, mutation.newShape);
@@ -723,25 +731,23 @@ public class Area {
 			pointsCount = mutation.pointsCount;
 			addeDiff = newAddeDiff;
 			diff = newDiff;
-			mutationsAccepted++;
-			if (mutation.oldShape == null) {
-				mutationsAdd++;
-			} else if (mutation.newShape == null) {
-				mutationsRemove++;
-			} else {
-				mutationsReplace++;
-			}
-		} else {
-			// temp *= 1.002;
-			if(temp > 0){
-				temp *= 1.0 + 1.e-7;
+			if (ret == 3) {
+				mutationsAccepted++;
+				if (mutation.oldShape == null) {
+					mutationsAdd++;
+				} else if (mutation.newShape == null) {
+					mutationsRemove++;
+				} else {
+					mutationsReplace++;
+				}
 			}
 		}
-		if (isLast) {
-			if (shapesAreMin) {
+		if (isLast && temperature >= 0) {
+			if (needSaveShapesMin) {
 				saveShapesMin();
-				shapesAreMin = false;
-				//System.out.print("s");
+				needSaveShapesMin = false;
+			} else {
+				restoreShapesMin();
 			}
 		}
 		return ret;
@@ -779,8 +785,7 @@ public class Area {
 		range.xMin = range.yMin = Integer.MAX_VALUE;
 		range.xMax = range.yMax = Integer.MIN_VALUE;
 		if (shape != null) {
-			for (int j = 0; j < shape.points.length; j++) {
-				int xy[] = shape.points[j];
+			for (int[] xy : shape.points) {
 				range.xMin = Math.min(range.xMin, xy[0]);
 				range.xMax = Math.max(range.xMax, xy[0]);
 				range.yMin = Math.min(range.yMin, xy[1]);
@@ -798,10 +803,10 @@ public class Area {
 		for (int j = 0; j < width * height; j++) {
 			pixels[j].initShapes(withReducer);
 		}
-		for (int j = 0; j < shapes.length; j++) {
-			findMutaPixelsNewShape(shapes[j]);
-			addShape(shapes[j]);
-			saveShapePixels(shapes[j]);
+		for (Shape shape : shapes) {
+			findMutaPixelsNewShape(shape);
+			addShape(shape);
+			saveShapePixels(shape);
 		}
 		for (int j = 0; j < width * height; j++) {
 			pixels[j].rgbRegen();
@@ -845,7 +850,7 @@ public class Area {
 		int nLine = 0;
 		int currIndex = 0;
 		String errTitle = "Error reading shapes: ";
-		temp = -1;
+		temperature = -1;
 		useShapesColorsReducers = withReducer;
 		mutationsTotal = 0;
 		mutationsAccepted = 0;
@@ -877,7 +882,7 @@ public class Area {
 					dataPointsCount = Integer.parseInt(keyVal[1]);
 				} else if (keyVal[0].equalsIgnoreCase("DistancePerPixel")) {
 				} else if (keyVal[0].equalsIgnoreCase("Temperature")) {
-					temp = Double.parseDouble(keyVal[1]);
+					temperature = Double.parseDouble(keyVal[1]);
 				} else if (keyVal[0].equalsIgnoreCase("mutationsTotal")) {
 					mutationsTotal = Integer.parseInt(keyVal[1]);
 				} else if (keyVal[0].equalsIgnoreCase("mutationsAccepted")) {
@@ -924,8 +929,9 @@ public class Area {
 					shape.points[k] = new int[2];
 					for (int l = 0; l < 2; l++) {
 						int coord = (int) Math.round(shapeData1[k + 1][l]);
-						assert coord >= 0 && ((l == 0 && coord <= dataWidth) || (l == 1 && coord <= dataHeight)) : errTitle
-								+ "Point out of range in shape " + j;
+						assert coord >= 0
+								&& ((l == 0 && coord <= dataWidth) || (l == 1 && coord <= dataHeight)) : errTitle
+										+ "Point out of range in shape " + j;
 						shape.points[k][l] = coord;
 					}
 				}
@@ -933,13 +939,7 @@ public class Area {
 			}
 			assert dataPointsCount == -1 || dataPointsCount == pointsCount : errTitle
 					+ "PointsCount does not match shapes data";
-			
-			if(temp < 0){
-				temp = -1;
-				diffMin = 0;
-			}else{
-				diffMin = Double.MAX_VALUE;
-			}
+
 			if (initPixels) {
 				setTarget(targetPath, withReducer);
 				assert width == dataWidth && height == dataHeight : errTitle + "Shape/Target dimemsions mismatch"
@@ -948,16 +948,14 @@ public class Area {
 				gOrder = shapesCount;
 				addeDiff = diff();
 				diff = diffTest(addeDiff);
-				if(temp >= 0){
+				if (temperature >= 0) {
 					diffMin = diff;
 					saveShapesMin();
 				}
 			} else {
 				width = dataWidth;
 				height = dataHeight;
-				if(temp >= 0){
-					diffMin = Double.MAX_VALUE;
-				}
+				diffMin = Double.MAX_VALUE;
 			}
 
 		} catch (IOException e) {
